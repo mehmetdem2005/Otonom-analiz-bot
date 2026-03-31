@@ -25,7 +25,6 @@ app = FastAPI(title="Otonom Ajan Sistemi")
 
 _orkestra: Orkestra = None
 _ws_baglantilar: Set[WebSocket] = set()
-_mesaj_kuyrugu: asyncio.Queue = asyncio.Queue()
 
 
 async def herkese_gonder(mesaj: dict):
@@ -105,6 +104,8 @@ button.dur:hover { background: #ff4444; color: #000; }
   <div id="status-dot"></div>
   <h1>// OTONOM AJAN SİSTEMİ</h1>
   <span id="tur-sayac">Tur: 0</span>
+  <span id="ajan-sayac" style="color:#556655;font-size:0.8em">Ajan: 10</span>
+  <span id="disk-goster" style="color:#556655;font-size:0.8em">Disk: -%</span>
 </div>
 
 <div id="layout">
@@ -203,6 +204,16 @@ function durumGuncelle(v) {
     btnB.style.display = 'inline-block';
     btnD.style.display = 'none';
   }
+  if (v.ajan_sayisi !== undefined) {
+    document.getElementById('ajan-sayac').textContent = `Ajan: ${v.ajan_sayisi}`;
+  }
+  if (v.disk_doluluk !== undefined) {
+    const disk = v.disk_doluluk;
+    const renk = disk > 85 ? '#ff4444' : disk > 75 ? '#ffaa00' : '#556655';
+    const el = document.getElementById('disk-goster');
+    el.textContent = `Disk: %${disk}`;
+    el.style.color = renk;
+  }
 }
 
 function baslat() {
@@ -256,7 +267,7 @@ async def baslat():
         return {"hata": "ANTHROPIC_API_KEY env değişkeni ayarlanmamış"}
     if _orkestra is None:
         _orkestra = Orkestra(API_ANAHTARI)
-        _orkestra.durum_kaydet(ajan_sonuc_callback)
+        _orkestra.durum_callback_ayarla(ajan_sonuc_callback)
     await _orkestra.baslat()
     await herkese_gonder({"tip": "durum", "veri": _orkestra.durum_raporu()})
     return {"durum": "başlatıldı"}
