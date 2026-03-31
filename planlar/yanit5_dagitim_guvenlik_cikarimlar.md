@@ -1,6 +1,10 @@
 # Yanıt 5 – Dağıtım, Güvenlik ve Çıkarımlar
 Zaman: 2026-03-31
 Kaynak: kullanici
+Kategori: DAĞITIM | GÜVENLİK & SANDBOX
+Etiketler: #dağıtım #binary #npm #kurulum #güncelleme #source-map #axios #tedarik-zinciri #imza #rollback
+İlgili: yanit2_arac_sistemi_ve_guvenlik.md
+İndeks: _INDEX.md → KATEGORİ 4, KATEGORİ 8
 
 ---
 

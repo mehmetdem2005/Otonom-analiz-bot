@@ -1,6 +1,10 @@
 # Yanıt 1 – Çekirdek Agent Mimarisi
 Zaman: 2026-03-31
 Kaynak: kullanici
+Kategori: MİMARİ | PROMPT & API
+Etiketler: #mimari #state-machine #event-loop #agent-core #döngü #prompt #api #model
+İlgili: yanit2_arac_sistemi_ve_guvenlik.md, yanit3_bellek_bagalam_ve_ruya.md
+İndeks: _INDEX.md → KATEGORİ 1, KATEGORİ 3
 
 ---
 

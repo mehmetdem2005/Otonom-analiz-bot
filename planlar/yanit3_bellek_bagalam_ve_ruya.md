@@ -1,6 +1,10 @@
 # Yanıt 3 – Bellek, Bağlam ve Rüya (Dream) Sistemi
 Zaman: 2026-03-31
 Kaynak: kullanici
+Kategori: BELLEK SİSTEMİ | RÜYA SİSTEMİ
+Etiketler: #bellek #memory #hafıza #vektör #embedding #oturum #rüya #dream #konsolidasyon #autoDream
+İlgili: yanit1_cekirdek_ajan_mimarisi.md, yanit4_ozel_modlar.md
+İndeks: _INDEX.md → KATEGORİ 5, KATEGORİ 6
 
 ---
 

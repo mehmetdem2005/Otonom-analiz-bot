@@ -1,6 +1,10 @@
 # Direktif – Otonom Bot Sistemi Mimarisi
 Zaman: 2026-03-31
 Kaynak: kullanici
+Kategori: DİREKTİFLER
+Etiketler: #direktif #hedef #otonom #7/24 #çakışmasızlık #tokenizasyon #bilimsel-algoritma #her-problem-için-bot
+İlgili: _INDEX.md
+İndeks: _INDEX.md → KATEGORİ 9
 
 ---
 

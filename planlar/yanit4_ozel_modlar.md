@@ -1,6 +1,10 @@
 # Yanıt 4 – Özel Modlar: KAIROS, BUDDY, ULTRAPLAN ve Undercover
 Zaman: 2026-03-31
 Kaynak: kullanici
+Kategori: ÖZEL MODLAR
+Etiketler: #kairos #buddy #ultraplan #undercover #mod #tamagotchi #ascii #nadirlik #arka-plan #bildirim #planlama #gizli
+İlgili: yanit1_cekirdek_ajan_mimarisi.md, yanit3_bellek_bagalam_ve_ruya.md
+İndeks: _INDEX.md → KATEGORİ 7
 
 ---
 

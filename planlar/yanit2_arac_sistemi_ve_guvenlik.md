@@ -1,6 +1,10 @@
 # Yanıt 2 – Araç Sistemi ve Güvenlik
 Zaman: 2026-03-31
 Kaynak: kullanici
+Kategori: ARAÇ SİSTEMİ | GÜVENLİK & SANDBOX
+Etiketler: #araç #tool #registry #izin #sandbox #güvenlik #paralel #send_user_file #push_notification #buddy
+İlgili: yanit1_cekirdek_ajan_mimarisi.md, yanit5_dagitim_guvenlik_cikarimlar.md
+İndeks: _INDEX.md → KATEGORİ 2, KATEGORİ 4
 
 ---
 
