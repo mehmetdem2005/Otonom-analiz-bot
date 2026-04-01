@@ -1,0 +1,12 @@
+PROMPT KAYDI 039
+Tarih: 2026-04-01
+Kullanici talebi: "tamam devam"
+
+Yapilanlar:
+- ADIM-3 semantik hafiza kullanimi aktiflestirildi.
+- react_tools.py icine hafiza_ara araci eklendi.
+- web_arayuzu.py icine /api/memory/search endpointi eklendi.
+- dashboard hafiza paneline semantik arama kutusu ve sonuc listesi eklendi.
+- test_memory_store.py icine semantic_search testleri eklendi.
+- test_react_tools.py icine hafiza_ara entegrasyon testi eklendi.
+- Tum testler gecti: 35/35 OK.

@@ -18,6 +18,12 @@ from datetime import datetime
 import hafiza_yoneticisi as hm
 import model_yoneticisi as my
 import llm_istemci as llm
+from agent_core import AgentCore, AgentState
+from action_schema import ActionEnvelope
+from memory_store import MemoryStore
+from trace_store import TraceStore
+from react_tools import build_default_registry
+from tool_registry import ToolDefinition
 from kaynak_siteler import TUM_SITELER, HABER_SITELERI, ARASTIRMA_SITELERI
 
 BASE = Path(__file__).parent
@@ -77,6 +83,79 @@ class Ajan:
             ),
             "Accept": "text/html,application/xhtml+xml",
             "Accept-Language": "en,tr,zh;q=0.9",
+        }
+
+    def _react_core_etkin_mi(self) -> bool:
+        return os.getenv("AGENT_REACT_CORE_ENABLED", "0").strip() == "1"
+
+    def _react_onay_politikasi(self, _action: ActionEnvelope, _tool: ToolDefinition) -> bool:
+        """Otonom mod varsayılanı: araç çağrılarına otomatik onay ver.
+        Güvenlik için AGENT_REACT_REQUIRE_MANUAL_CONFIRM=1 ayarlanırsa manuel-onay moduna döner.
+        """
+        if _tool.risk_level == "critical":
+            return os.getenv("AGENT_ALLOW_CRITICAL_TOOLS", "0").strip() == "1"
+
+        manual = os.getenv("AGENT_REACT_REQUIRE_MANUAL_CONFIRM", "0").strip() == "1"
+        if manual and _tool.requires_confirmation:
+            return False
+        return True
+
+    async def _react_llm_cagir(self, history, tool_defs):
+        sistem = (
+            "Sen bir ReAct ajanısın. Her çıktın yalnızca geçerli JSON olmalı. "
+            "Eğer araç çağrısı gerekiyorsa {'actions': [...]} döndür. "
+            "Eğer görev tamamlandıysa {'final': '...'} döndür. "
+            "Aksiyon alanları: name,args,timeout_sec,retry,safety_level."
+        )
+        kullanici = (
+            f"Perspektif: {self.perspektif}\n"
+            f"Konuşma geçmişi(son): {json.dumps(history[-8:], ensure_ascii=False)}\n"
+            f"Araçlar: {json.dumps(tool_defs, ensure_ascii=False)}"
+        )
+        ham = await self._api_cagir(sistem, kullanici)
+        return ham
+
+    async def _tek_tur_react_calistir(self) -> dict:
+        self.durum = "react_dusunuyor"
+        objective = (
+            f"Ajan perspektifi: {self.perspektif}. "
+            "Hedef: somut teknik çıktı üret, gerekirse araçları kullan, sonucu kısa ve uygulanabilir ver."
+        )
+        _mem = MemoryStore(hm.KLASORLER["log"] / "agent_memory.jsonl")
+        registry = build_default_registry(BASE, memory_store=_mem)
+        core = AgentCore(
+            llm_call=self._react_llm_cagir,
+            registry=registry,
+            trace_store=TraceStore(hm.KLASORLER["log"]),
+            confirmation_policy=self._react_onay_politikasi,
+            memory_store=_mem,
+            max_iterations=8,
+        )
+        ctx = await core.run(objective)
+
+        if ctx.state == AgentState.DONE:
+            icerik = ctx.final_answer
+            durum = "react_tamamlandi"
+        else:
+            icerik = ctx.final_answer or "ReAct çekirdeği görevi tamamlayamadı."
+            durum = "react_basarisiz"
+
+        self.son_cikti = icerik
+        etiket = self.perspektif.split(":")[0].lower().replace(" ", "_")
+        hw = await hm.hafizaya_yaz(self.id, self.tur, icerik, etiket=etiket)
+        sw = await hm.sonuca_yaz(self.id, self.tur, icerik, kategori=etiket)
+        if not (hw or sw):
+            durum = "duplikat_reddedildi"
+        await hm.log_yaz(f"A{self.id} T{self.tur}: {durum}")
+
+        self.durum = "tamamlandı" if durum != "react_basarisiz" else "hata"
+        return {
+            "ajan_id": self.id,
+            "tur": self.tur,
+            "perspektif": self.perspektif,
+            "durum": durum,
+            "icerik_ozet": icerik[:300],
+            "zaman": datetime.now().isoformat(),
         }
 
     # ─── İnternet Araçları ───────────────────────────────────────────────────
@@ -232,6 +311,10 @@ class Ajan:
         self.tur += 1
         self.durum = "okuyor"
         await hm.log_yaz(f"A{self.id} T{self.tur}: tur başladı", "INFO")
+
+        if self._react_core_etkin_mi():
+            await hm.log_yaz(f"A{self.id} T{self.tur}: ReAct çekirdeği aktif", "INFO")
+            return await self._tek_tur_react_calistir()
 
         planlar, hafiza, sonuclar, kaynak_kod = await asyncio.gather(
             hm.planlari_oku(),

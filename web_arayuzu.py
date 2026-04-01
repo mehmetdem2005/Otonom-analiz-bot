@@ -7,7 +7,7 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Set
 
@@ -26,6 +26,73 @@ app = FastAPI(title="Otonom Ajan Sistemi")
 
 _orkestra: Orkestra = None
 _ws_baglantilar: Set[WebSocket] = set()
+COZULEN_HATA_KLASOR = hm.KLASORLER["log"] / "cozulen_hatalar"
+COZULEN_HATA_KLASOR.mkdir(parents=True, exist_ok=True)
+
+
+def _cozulen_hata_dosya() -> Path:
+    return COZULEN_HATA_KLASOR / f"cozulen_{datetime.now().strftime('%Y%m%d')}.jsonl"
+
+
+def _cozulen_hata_temizle(gun: int = 30):
+    esik = datetime.now() - timedelta(days=gun)
+    for f in COZULEN_HATA_KLASOR.glob("cozulen_*.jsonl"):
+        try:
+            tarih_str = f.stem.replace("cozulen_", "")
+            tarih = datetime.strptime(tarih_str, "%Y%m%d")
+            if tarih < esik:
+                f.unlink(missing_ok=True)
+        except Exception:
+            # Dosya adında tarih parse edilemiyorsa güvenli şekilde geç.
+            continue
+
+
+def _log_satiri_ayristir(satir: str) -> dict:
+    eslesme = re.match(r"^\[(.*?)\]\s+\[(.*?)\]\s+(.*)$", satir)
+    if not eslesme:
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "level": "INFO",
+            "message": satir,
+            "raw": satir,
+        }
+    zaman, seviye, mesaj = eslesme.groups()
+    return {
+        "timestamp": zaman,
+        "level": seviye,
+        "message": mesaj,
+        "raw": satir,
+    }
+
+
+async def _cozulen_hata_kaydet(kayit: dict):
+    _cozulen_hata_temizle(30)
+    hedef = _cozulen_hata_dosya()
+    kayit["resolvedAt"] = datetime.now().isoformat()
+    kayit["expiresAt"] = (datetime.now() + timedelta(days=30)).isoformat()
+    async with aiofiles.open(hedef, "a", encoding="utf-8") as f:
+        await f.write(json.dumps(kayit, ensure_ascii=False) + "\n")
+
+
+async def _cozulen_hata_listele(limit: int = 200) -> list[dict]:
+    _cozulen_hata_temizle(30)
+    kayitlar: list[dict] = []
+    for dosya in sorted(COZULEN_HATA_KLASOR.glob("cozulen_*.jsonl"), reverse=True):
+        try:
+            async with aiofiles.open(dosya, "r", encoding="utf-8") as f:
+                icerik = await f.read()
+            for satir in icerik.splitlines():
+                if not satir.strip():
+                    continue
+                try:
+                    kayitlar.append(json.loads(satir))
+                except Exception:
+                    continue
+        except Exception:
+            continue
+        if len(kayitlar) >= limit:
+            break
+    return kayitlar[:limit]
 
 
 async def _dashboard_html_oku() -> str:
@@ -215,7 +282,13 @@ async def get_analytics():
 
     total_outputs = sonuc_sayisi
     api_calls = llm.llm_deneme_sayisi()
-    errors = hata_sayisi
+    try:
+        cozulenler = await _cozulen_hata_listele(limit=5000)
+        bugun = datetime.now().strftime("%Y-%m-%d")
+        bugun_cozulen = sum(1 for k in cozulenler if str(k.get("resolvedAt", "")).startswith(bugun))
+        errors = max(0, hata_sayisi - bugun_cozulen)
+    except Exception:
+        errors = hata_sayisi
     local_calls = hafiza_sayisi
 
     total_calls = api_calls + local_calls if (api_calls + local_calls) > 0 else 1
@@ -276,6 +349,234 @@ async def get_recent_logs(lines: int = 120):
         return {"logs": satirlar[-lines:]}
     except Exception as e:
         return {"error": str(e), "logs": []}
+
+
+@app.get("/api/traces/recent")
+async def get_recent_traces(lines: int = 120, event: str = "", tool: str = "", ok: str = ""):
+    """Agent trace kayıtlarını JSONL formatından döndürür."""
+    try:
+        trace_file = hm.KLASORLER["log"] / f"agent_trace_{datetime.now().strftime('%Y%m%d')}.jsonl"
+        if not trace_file.exists():
+            return {"traces": []}
+        async with aiofiles.open(trace_file, "r", encoding="utf-8") as f:
+            content = await f.read()
+        satirlar = [satir for satir in content.splitlines() if satir.strip()]
+        sonuc = []
+        for satir in satirlar[-lines:]:
+            try:
+                item = json.loads(satir)
+                if event and str(item.get("event", "")) != event:
+                    continue
+                if tool and str(item.get("tool", "")) != tool:
+                    continue
+                if ok:
+                    ok_bool = ok.lower() in {"1", "true", "yes"}
+                    if bool(item.get("ok")) != ok_bool:
+                        continue
+                sonuc.append(item)
+            except Exception:
+                continue
+        return {"traces": sonuc}
+    except Exception as e:
+        return {"error": str(e), "traces": []}
+
+
+@app.get("/api/traces/summary")
+async def get_trace_summary(lines: int = 500):
+    """Son trace kayıtlarından özet metrik döndürür."""
+    try:
+        trace_file = hm.KLASORLER["log"] / f"agent_trace_{datetime.now().strftime('%Y%m%d')}.jsonl"
+        if not trace_file.exists():
+            return {
+                "total": 0,
+                "toolResults": 0,
+                "successRate": 0,
+                "denied": 0,
+                "retries": 0,
+                "lastError": "",
+                "lastDeniedReason": "",
+            }
+
+        async with aiofiles.open(trace_file, "r", encoding="utf-8") as f:
+            content = await f.read()
+        satirlar = [satir for satir in content.splitlines() if satir.strip()][-lines:]
+        items = []
+        for satir in satirlar:
+            try:
+                items.append(json.loads(satir))
+            except Exception:
+                continue
+
+        tool_results = [i for i in items if i.get("event") == "tool_result"]
+        total_tool = len(tool_results)
+        ok_count = sum(1 for i in tool_results if bool(i.get("ok")))
+        denied = sum(1 for i in items if i.get("event") == "tool_denied")
+        retries = sum(max(0, int(i.get("attempts", 1)) - 1) for i in tool_results)
+        success_rate = int((ok_count / total_tool) * 100) if total_tool else 0
+        last_error = ""
+        last_denied_reason = ""
+
+        for i in reversed(tool_results):
+            if not bool(i.get("ok")) and i.get("error"):
+                last_error = str(i.get("error"))[:200]
+                break
+
+        for i in reversed(items):
+            if i.get("event") == "tool_denied":
+                last_denied_reason = str(i.get("error") or i.get("tool") or "denied")[:200]
+                break
+
+        # Plan JSON özeti: son plan_json alanını döndür
+        last_plan_json: dict = {}
+        for i in reversed(items):
+            if i.get("plan_json"):
+                last_plan_json = i["plan_json"]
+                break
+
+        # Rollback sayısı
+        rollbacks = sum(
+            1 for i in items
+            if i.get("event") in {"auto_rollback_applied", "auto_rollback_applied_broad"}
+        )
+
+        return {
+            "total": len(items),
+            "toolResults": total_tool,
+            "successRate": success_rate,
+            "denied": denied,
+            "retries": retries,
+            "rollbacks": rollbacks,
+            "lastError": last_error,
+            "lastDeniedReason": last_denied_reason,
+            "lastPlanJson": last_plan_json,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/memory/recent")
+async def get_memory_recent(limit: int = 30):
+    """Agent hafıza kayıtlarının son N satırını döndürür."""
+    try:
+        from memory_store import MemoryStore
+        ms = MemoryStore()
+        recs = ms.recall_recent(limit=limit)
+        return {"records": [r.__dict__ for r in recs]}
+    except Exception as e:
+        return {"error": str(e), "records": []}
+
+
+@app.get("/api/memory/stats")
+async def get_memory_stats():
+    """Hafıza istatistiklerini döndürür: toplam kayıt, rollback sayısı, başarı oranı."""
+    try:
+        from memory_store import MemoryStore
+        ms = MemoryStore()
+        recs = ms.load_all()
+        total = len(recs)
+        rollbacks = sum(1 for r in recs if r.kind == "rollback")
+        successes = sum(1 for r in recs if r.kind == "fix_attempt" and r.outcome == "success")
+        fix_attempts = sum(1 for r in recs if r.kind == "fix_attempt")
+        overall_rate = round(successes / fix_attempts, 3) if fix_attempts else None
+        # path başına özet
+        paths: dict[str, dict] = {}
+        for r in recs:
+            p = r.path or ""
+            if p not in paths:
+                paths[p] = {"attempts": 0, "successes": 0, "rollbacks": 0}
+            if r.kind == "fix_attempt":
+                paths[p]["attempts"] += 1
+                if r.outcome == "success":
+                    paths[p]["successes"] += 1
+            elif r.kind == "rollback":
+                paths[p]["rollbacks"] += 1
+        return {
+            "total": total,
+            "rollbacks": rollbacks,
+            "fix_attempts": fix_attempts,
+            "successes": successes,
+            "overall_success_rate": overall_rate,
+            "by_path": paths,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/memory/search")
+async def get_memory_search(query: str, limit: int = 10, path: str = ""):
+    """Hafıza kayıtlarında sorgu metnine göre semantik benzerlik araması yapar."""
+    try:
+        from memory_store import MemoryStore
+
+        ms = MemoryStore()
+        results = ms.semantic_search(query=query, limit=limit, path=path)
+        return {
+            "query": query,
+            "count": len(results),
+            "results": [
+                {
+                    "score": x["score"],
+                    "record": x["record"].__dict__,
+                }
+                for x in results
+            ],
+        }
+    except Exception as e:
+        return {"error": str(e), "query": query, "count": 0, "results": []}
+
+
+@app.get("/api/errors/recent")
+async def get_recent_errors(lines: int = 200):
+    """Son loglardan hata detaylarını döndürür."""
+    try:
+        log_file = hm.KLASORLER["log"] / f"sistem_{datetime.now().strftime('%Y%m%d')}.log"
+        if not log_file.exists():
+            return {"errors": []}
+        async with aiofiles.open(log_file, "r", encoding="utf-8") as f:
+            icerik = await f.read()
+        satirlar = [s for s in icerik.splitlines() if s.strip()]
+        hata_satirlari = [s for s in satirlar if "[ERROR]" in s]
+        detaylar = []
+        for s in hata_satirlari[-lines:]:
+            detay = _log_satiri_ayristir(s)
+            detay["id"] = str(abs(hash(s)))
+            detaylar.append(detay)
+        return {"errors": detaylar}
+    except Exception as e:
+        return {"error": str(e), "errors": []}
+
+
+@app.post("/api/errors/resolve")
+async def resolve_error(request: Request):
+    """Bir hata mesajını çözüldü olarak ayrı kayda taşır."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": False, "error": "Geçersiz JSON"}
+
+    mesaj = str(body.get("message", "")).strip()
+    ham_satir = str(body.get("raw", "")).strip()
+    if not mesaj and not ham_satir:
+        return {"ok": False, "error": "message veya raw zorunlu"}
+
+    kayit = {
+        "message": mesaj or ham_satir,
+        "raw": ham_satir,
+        "source": body.get("source", "manual"),
+    }
+    await _cozulen_hata_kaydet(kayit)
+    await hm.log_yaz(f"Çözülen hata kaydedildi: {kayit['message'][:120]}", "SUCCESS")
+    return {"ok": True}
+
+
+@app.get("/api/errors/resolved")
+async def get_resolved_errors(limit: int = 200):
+    """Çözüldü olarak işaretlenen hataları döndürür (30 gün saklama)."""
+    try:
+        kayitlar = await _cozulen_hata_listele(limit=limit)
+        return {"resolved": kayitlar}
+    except Exception as e:
+        return {"error": str(e), "resolved": []}
 
 
 @app.get("/api/logs/agent/{agent_name}")
