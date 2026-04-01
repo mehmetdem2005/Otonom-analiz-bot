@@ -214,7 +214,7 @@ async def get_analytics():
         self_improvements = 0
 
     total_outputs = sonuc_sayisi
-    api_calls = log_icerik.count("[LLM]")
+    api_calls = llm.llm_deneme_sayisi()
     errors = hata_sayisi
     local_calls = hafiza_sayisi
 

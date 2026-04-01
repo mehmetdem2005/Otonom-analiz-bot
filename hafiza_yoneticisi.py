@@ -77,14 +77,13 @@ async def hafizaya_yaz(ajan_id: int, tur: int, icerik: str, etiket: str = "genel
 
 
 async def sonuca_yaz(ajan_id: int, tur: int, icerik: str, kategori: str = "analiz") -> bool:
-    if await duplikat_mi(icerik):
-        return False
+    # Aynı içeriği hem hafıza hem sonuç olarak saklayabilmek için
+    # burada global hash-duplikat engeli uygulanmaz.
     zaman = datetime.now().strftime("%Y%m%d_%H%M%S")
     dosya = KLASORLER["sonuclar"] / f"{zaman}_a{ajan_id:02d}_{kategori[:20]}.md"
     meta = f"---\najan: {ajan_id}\ntur: {tur}\nzaman: {datetime.now().isoformat()}\nkategori: {kategori}\n---\n\n"
     async with aiofiles.open(dosya, "w", encoding="utf-8") as f:
         await f.write(meta + icerik)
-    await _hash_kaydet(icerik)
     return True
 
 

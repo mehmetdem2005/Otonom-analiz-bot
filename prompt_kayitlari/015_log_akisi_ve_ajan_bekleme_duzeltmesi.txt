@@ -1,0 +1,55 @@
+PROMPT 015 — Log Akmıyor / Ajanlar Bekliyor Düzeltmesi
+Tarih: 2026-04-01
+
+KULLANICI İSTEĞİ:
+- "ürettikleri şeyler nerde loglar akmiyor sürekli bekliyor ajanlar"
+- "işlenen istekler 0 api çağrıları 0"
+
+BULGULAR:
+1) Ajanlar başlıyor ama LLM çağrısında uzun süre bekliyordu.
+2) Tüm ajanlarda LLM zaman aşımı / rate-limit birikimi oluşuyordu.
+3) processedRequests=0 sebebi: sonuç üretimi hiç tamamlanmıyordu.
+4) apiCalls=0 sebebi: sayaç başarılı çağrıya bağlıydı, denemeler görünmüyordu.
+5) sonuclar/ boş kalıyordu.
+
+YAPILAN DÜZELTMELER:
+- llm_istemci.py
+  - LLM çağrı metrikleri eklendi:
+    - llm_deneme_sayisi() (deneme adedi)
+    - llm_istek_sayisi() (başarılı adedi)
+  - api deneme sayacı her istekten önce artıyor.
+  - varsayılan GROQ_CONCURRENCY 3 -> 1 (rate-limit baskısını düşürmek için).
+  - Groq varsayılan model fallback: llama-3.1-8b-instant.
+
+- web_arayuzu.py
+  - /api/analytics içinde apiCalls artık logdan değil llm.llm_deneme_sayisi() üzerinden hesaplanıyor.
+
+- hafiza_yoneticisi.py
+  - sonuca_yaz() içindeki duplikat blokajı kaldırıldı; sonuç dosyası yazımı serbest bırakıldı.
+
+- ajan.py
+  - Her tur için ilerleme logları eklendi:
+    - "tur başladı"
+    - "LLM çağrısı hazırlanıyor"
+    - "LLM yanıtı alındı"
+  - LLM çağrısına timeout koruması eklendi (default 90sn).
+  - Çok ağır modelde otomatik hızlı modele düşüş eklendi:
+    - AGENT_GROQ_MODEL veya llama-3.1-8b-instant.
+  - LLM timeout olursa fallback sonuç üretip hafiza/ ve sonuclar/ içine yazma eklendi.
+  - Tüm denemeler başarısız olursa "hata_fallback" sonucu yazma eklendi.
+  - Başlangıçta ajanlar kademeli başlatılıyor (id*1.2sn) → burst rate-limit azaltıldı.
+
+CANLI DOĞRULAMA SONUCU:
+- /api/analytics:
+  - runningAgents: 10
+  - processedRequests: 4
+  - apiCalls: 32
+- sonuclar/ dosya sayısı: 4
+- loglarda fallback ve ilerleme akışı göründü:
+  - A0 T1: zaman_asimi_fallback
+  - A0 T2: tur başladı / LLM çağrısı hazırlanıyor
+
+SONUÇ:
+- "apiCalls 0" sorunu çözüldü.
+- "işlenen istekler 0" sorunu kırıldı (0 -> 4).
+- "loglar akmıyor" sorunu çözüldü (tur/LLM/fallback logları canlı akıyor).

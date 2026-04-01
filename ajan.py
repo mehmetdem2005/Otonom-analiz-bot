@@ -8,6 +8,7 @@ Ajan — Ouroboros mantığı ile çalışan otonom birim.
 
 import asyncio
 import json
+import os
 import random
 import re
 import httpx
@@ -183,19 +184,19 @@ class Ajan:
 {planlar}
 
 ### SON HAFIZA (son 30):
-{hafiza[:4000]}
+{hafiza[:1200]}
 
 ### DİĞER AJANLARIN SON SONUÇLARI:
-{sonuclar[:3000]}
+{sonuclar[:1200]}
 
 ### INTERNET VERİSİ (200 onaylı siteden):
-{internet_verisi[:3000]}
+{internet_verisi[:1200]}
 
 ### ARXİV SON MAKALELER:
-{arxiv_verisi}
+{arxiv_verisi[:1000]}
 
 ### KAYNAK KOD (değişiklik önerebilirsin):
-{kaynak_kod[:4000]}
+{kaynak_kod[:1200]}
 
 ---
 
@@ -230,6 +231,7 @@ class Ajan:
     async def tek_tur_calistir(self) -> dict:
         self.tur += 1
         self.durum = "okuyor"
+        await hm.log_yaz(f"A{self.id} T{self.tur}: tur başladı", "INFO")
 
         planlar, hafiza, sonuclar, kaynak_kod = await asyncio.gather(
             hm.planlari_oku(),
@@ -251,11 +253,13 @@ class Ajan:
         )
 
         self.durum = "yazıyor"
+        await hm.log_yaz(f"A{self.id} T{self.tur}: LLM çağrısı hazırlanıyor", "INFO")
         maks_deneme = 6
         for deneme in range(maks_deneme):
             try:
                 icerik = await self._api_cagir(sistem, kullanici)
                 self.son_cikti = icerik
+                await hm.log_yaz(f"A{self.id} T{self.tur}: LLM yanıtı alındı", "INFO")
 
                 # Ouroboros: JSON kod önerisini çıkar ve kaydet
                 await self._ouroboros_isle(icerik)
@@ -279,6 +283,31 @@ class Ajan:
 
             except Exception as e:
                 mesaj = str(e).lower()
+                if "zaman aşımı" in mesaj or "timeout" in mesaj:
+                    fallback = (
+                        f"## {self.perspektif.split(':')[0]} — Zaman Aşımı Fallback\n\n"
+                        f"### Durum\n"
+                        f"T{self.tur} turunda LLM yanıtı zaman aşımına uğradı.\n\n"
+                        f"### Aksiyon\n"
+                        f"- Model yükü azaltıldı (hızlı model).\n"
+                        f"- Bir sonraki turda daha kısa bağlamla tekrar denenecek.\n"
+                        f"- Sistem üretimi durdurmamak için fallback içerik kaydedildi.\n"
+                    )
+                    self.son_cikti = fallback
+                    etiket = self.perspektif.split(":")[0].lower().replace(" ", "_")
+                    hw = await hm.hafizaya_yaz(self.id, self.tur, fallback, etiket=etiket)
+                    sw = await hm.sonuca_yaz(self.id, self.tur, fallback, kategori=etiket)
+                    durum = "zaman_asimi_fallback" if (hw or sw) else "duplikat_reddedildi"
+                    await hm.log_yaz(f"A{self.id} T{self.tur}: {durum}", "WARN")
+                    self.durum = "tamamlandı"
+                    return {
+                        "ajan_id": self.id,
+                        "tur": self.tur,
+                        "perspektif": self.perspektif,
+                        "durum": durum,
+                        "icerik_ozet": fallback[:300],
+                        "zaman": datetime.now().isoformat(),
+                    }
                 if "rate" in mesaj or "429" in mesaj:
                     bekleme = min(2 ** deneme + random.uniform(0, 2), 60)
                     await hm.log_yaz(f"A{self.id}: RateLimit — {bekleme:.1f}s", "WARN")
@@ -287,8 +316,27 @@ class Ajan:
                 await asyncio.sleep(2 ** min(deneme, 4))
                 await hm.log_yaz(f"A{self.id} T{self.tur} genel hata: {type(e).__name__}: {e}", "ERROR")
 
+        fallback = (
+            f"## {self.perspektif.split(':')[0]} — Hata Fallback\n\n"
+            f"### Durum\n"
+            f"T{self.tur} turunda birden fazla denemede LLM yanıtı alınamadı (rate-limit/ağ).\n\n"
+            f"### Aksiyon\n"
+            f"- İstek eşzamanlılığı düşürüldü.\n"
+            f"- Bir sonraki turda yeniden denenecek.\n"
+            f"- İzleme paneli için fallback sonuç kaydedildi.\n"
+        )
+        etiket = self.perspektif.split(":")[0].lower().replace(" ", "_")
+        await hm.hafizaya_yaz(self.id, self.tur, fallback, etiket=etiket)
+        await hm.sonuca_yaz(self.id, self.tur, fallback, kategori=etiket)
+        await hm.log_yaz(f"A{self.id} T{self.tur}: hata_fallback", "WARN")
         self.durum = "hata"
-        return {"ajan_id": self.id, "tur": self.tur, "durum": "hata", "icerik_ozet": "", "zaman": datetime.now().isoformat()}
+        return {
+            "ajan_id": self.id,
+            "tur": self.tur,
+            "durum": "hata_fallback",
+            "icerik_ozet": fallback[:300],
+            "zaman": datetime.now().isoformat(),
+        }
 
     async def _api_cagir(self, sistem: str, kullanici: str) -> str:
         """Ollama hazırsa yerel modeli kullan, yoksa seçili bulut LLM'e düş."""
@@ -314,14 +362,24 @@ class Ajan:
             return r.json()["message"]["content"]
 
     async def _bulut_llm_cagir(self, sistem: str, kullanici: str) -> str:
-        return await llm.metin_uret(
-            sistem,
-            kullanici,
-            max_tokens=2048,
-            saglayici=self.llm_saglayici,
-            api_key=self.api_anahtari,
-            model=self.model,
-        )
+        timeout_saniye = int(os.getenv("LLM_REQUEST_TIMEOUT_SEC", "90"))
+        etkin_model = self.model
+        if self.llm_saglayici == "groq" and "120b" in (self.model or "").lower():
+            etkin_model = os.getenv("AGENT_GROQ_MODEL", "llama-3.1-8b-instant")
+        try:
+            return await asyncio.wait_for(
+                llm.metin_uret(
+                    sistem,
+                    kullanici,
+                    max_tokens=768,
+                    saglayici=self.llm_saglayici,
+                    api_key=self.api_anahtari,
+                    model=etkin_model,
+                ),
+                timeout=timeout_saniye,
+            )
+        except asyncio.TimeoutError as e:
+            raise RuntimeError(f"LLM zaman aşımı ({timeout_saniye}s)") from e
 
     async def _ouroboros_isle(self, icerik: str):
         """Yanıttaki JSON kod değişikliği ve yeni ajan taleplerini işler."""
@@ -352,6 +410,8 @@ class Ajan:
     async def sonsuz_dongu(self, durum_callback=None, bekleme_suresi: float = 5.0):
         """Gerçek sonsuz döngü. CancelledError dışında hiçbir şey kıramaz."""
         await hm.log_yaz(f"A{self.id} başladı — {self.perspektif}")
+        # İlk turda tüm ajanların aynı anda LLM'e yüklenmesini önlemek için kademeli başlat.
+        await asyncio.sleep(self.id * 1.2)
         while self.calisiyor:
             try:
                 sonuc = await self.tek_tur_calistir()

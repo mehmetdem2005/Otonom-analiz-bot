@@ -13,7 +13,7 @@ from typing import Tuple
 import httpx
 
 
-_GROQ_CONCURRENCY = int(os.getenv("GROQ_CONCURRENCY", "3"))
+_GROQ_CONCURRENCY = int(os.getenv("GROQ_CONCURRENCY", "1"))
 _GROQ_MIN_INTERVAL_SEC = float(os.getenv("GROQ_MIN_INTERVAL_SEC", "0.5"))
 _GROQ_MAX_RETRY = int(os.getenv("GROQ_MAX_RETRY", "30"))
 _GROQ_413_CHUNK_CHARS = int(os.getenv("GROQ_413_CHUNK_CHARS", "7000"))
@@ -28,6 +28,18 @@ _groq_sem = asyncio.Semaphore(_GROQ_CONCURRENCY)
 _groq_ritim_kilit = asyncio.Lock()
 _groq_son_istek = 0.0
 _groq_dinamik_aralik = _GROQ_MIN_INTERVAL_SEC
+_llm_istek_sayaci = 0
+_llm_deneme_sayaci = 0
+
+
+def llm_istek_sayisi() -> int:
+    """Bu süreç boyunca yapılan başarılı LLM API çağrı sayısını döndürür."""
+    return _llm_istek_sayaci
+
+
+def llm_deneme_sayisi() -> int:
+    """Bu süreç boyunca başlatılan LLM API deneme sayısını döndürür."""
+    return _llm_deneme_sayaci
 
 
 async def _groq_ritim_bekle() -> None:
@@ -107,6 +119,7 @@ async def _groq_chat_raw(
     kullanici: str,
     max_tokens: int,
 ) -> str:
+    global _llm_istek_sayaci, _llm_deneme_sayaci
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     payload = {
@@ -121,6 +134,7 @@ async def _groq_chat_raw(
 
     async with _groq_sem:
         await _groq_ritim_bekle()
+        _llm_deneme_sayaci += 1
         async with httpx.AsyncClient(timeout=120) as c:
             r = await c.post(url, headers=headers, json=payload)
             try:
@@ -130,6 +144,7 @@ async def _groq_chat_raw(
                 raise
             veri = r.json()
         await _groq_geri_bildirim(True)
+        _llm_istek_sayaci += 1
     return veri["choices"][0]["message"]["content"]
 
 
@@ -183,7 +198,7 @@ def etkin_baglanti() -> Tuple[str, str, str]:
 
     if provider_env == "groq":
         if groq_key:
-            return "groq", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+            return "groq", groq_key, os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
         if anthropic_key:
             return "anthropic", anthropic_key, os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
         raise RuntimeError("LLM_PROVIDER=groq ama GROQ_API_KEY yok")
@@ -192,7 +207,7 @@ def etkin_baglanti() -> Tuple[str, str, str]:
     if anthropic_key:
         return "anthropic", anthropic_key, os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
     if groq_key:
-        return "groq", groq_key, os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        return "groq", groq_key, os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
     raise RuntimeError("Geçerli LLM anahtarı bulunamadı (ANTHROPIC_API_KEY veya GROQ_API_KEY)")
 
@@ -211,6 +226,7 @@ async def metin_uret(
     model: str | None = None,
 ) -> str:
     """Sistem + kullanıcı mesajından tek bir metin yanıtı üretir."""
+    global _llm_istek_sayaci, _llm_deneme_sayaci
     if not saglayici or not api_key or not model:
         secilen = etkin_baglanti()
         saglayici = saglayici or secilen[0]
@@ -221,12 +237,14 @@ async def metin_uret(
         import anthropic
 
         client = anthropic.AsyncAnthropic(api_key=api_key)
+        _llm_deneme_sayaci += 1
         yanit = await client.messages.create(
             model=model,
             max_tokens=max_tokens,
             system=sistem,
             messages=[{"role": "user", "content": kullanici}],
         )
+        _llm_istek_sayaci += 1
         return yanit.content[0].text
 
     if saglayici == "groq":
