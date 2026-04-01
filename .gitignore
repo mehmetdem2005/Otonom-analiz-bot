@@ -1,1 +1,52 @@
 __pycache__/
+*.py[cod]
+*.pyo
+
+# Python sanal ortam
+.venv/
+venv/
+env/
+
+# Ortam değişkenleri — asla commit etme
+.env
+.env.local
+.env.*.local
+
+# Node.js bağımlılıkları
+node_modules/
+
+# Çalışma zamanı veri dosyaları — kişisel veri içerebilir
+hafiza/
+sonuclar/
+log/
+egitim_verisi/
+modeller/
+kaynak_kod_arsivi/
+onerilen_degisiklikler/
+
+# Geçici dosyalar
+temp/*.mp3
+temp/*.mp4
+temp/*.ppm
+temp/*.avi
+temp/*.srt
+
+# Sunucu logları
+server_debug.log
+*.log
+
+# Eğitim ve model dosyaları
+*.gguf
+*.bin
+*.safetensors
+
+# IDE / editör
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS dosyaları
+.DS_Store
+Thumbs.db
+

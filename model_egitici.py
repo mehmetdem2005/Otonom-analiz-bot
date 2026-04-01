@@ -59,8 +59,20 @@ def _ollama_kurulu_mu() -> bool:
     ).returncode == 0
 
 
+# Güvenli yüklenebilecek paket listesi — LLM çıktısından gelen istek bu listeyle kontrol edilir
+_IZINLI_PAKETLER = frozenset({
+    "unsloth", "unsloth[colab-new]",
+    "transformers", "peft", "trl", "accelerate", "bitsandbytes",
+    "datasets", "torch", "torchvision",
+})
+
+
 async def _paket_yukle(paket: str):
-    """Eksik paketi runtime'da yükler."""
+    """Eksik paketi runtime'da yükler (yalnızca izin verilenler)."""
+    temel = paket.split("[")[0].lower()
+    if temel not in {p.split("[")[0].lower() for p in _IZINLI_PAKETLER}:
+        await hm.log_yaz(f"İzinsiz paket yükleme engellendi: {paket}", "ERROR")
+        return False
     await hm.log_yaz(f"Paket yükleniyor: {paket}", "TRAIN")
     proc = await asyncio.create_subprocess_exec(
         sys.executable, "-m", "pip", "install", "-q", paket,
@@ -193,14 +205,13 @@ async def transformers_ile_egit(
             bnb_4bit_compute_dtype=torch.float16,
         )
 
-        tokenizer = AutoTokenizer.from_pretrained(hf_adi, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(hf_adi)
         tokenizer.pad_token = tokenizer.eos_token
 
         model = AutoModelForCausalLM.from_pretrained(
             hf_adi,
             quantization_config=bnb_config,
             device_map="auto",
-            trust_remote_code=True,
         )
 
         lora_config = LoraConfig(

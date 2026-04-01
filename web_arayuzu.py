@@ -6,13 +6,14 @@ Web Arayüzü — FastAPI + WebSocket
 import asyncio
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Set
 
 import aiofiles
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 import hafiza_yoneticisi as hm
@@ -561,35 +562,43 @@ async def get_agents_list():
 @app.get("/api/analytics")
 async def get_analytics():
   """AI gelişim metrikleri"""
+  hafiza_sayisi = 0
+  sonuc_sayisi = 0
+  hata_sayisi = 0
+  log_icerik = ""
   try:
     hafiza_sayisi = len([d for d in hm.KLASORLER["hafiza"].glob("*.md") if not d.name.startswith("_")])
     sonuc_sayisi = len(list(hm.KLASORLER["sonuclar"].glob("*.md")))
     log_dosyasi = hm.KLASORLER["log"] / f"sistem_{datetime.now().strftime('%Y%m%d')}.log"
-    hata_sayisi = 0
     if log_dosyasi.exists():
       async with aiofiles.open(log_dosyasi, "r", encoding="utf-8") as f:
         log_icerik = await f.read()
       hata_sayisi = log_icerik.count("[ERROR]")
-  except:
-    hafiza_sayisi = 0
-    sonuc_sayisi = 0
-    hata_sayisi = 0
+  except Exception as e:
+    await hm.log_yaz(f"Analytics okuma hatası: {e}", "WARN")
+
+  try:
+    onerilen_klasor = hm.KLASORLER["onerilen_degisiklikler"]
+    self_improvements = len(list(onerilen_klasor.glob("*.uyguland")))
+  except Exception:
+    self_improvements = 0
 
   total_outputs = sonuc_sayisi
-  api_calls = 0
+  api_calls = log_icerik.count("[LLM]")
   errors = hata_sayisi
   local_calls = hafiza_sayisi
-    
+
   total_calls = api_calls + local_calls if (api_calls + local_calls) > 0 else 1
   api_dependency_reduction = int((local_calls / total_calls * 100))
-  self_improvements = 0
   self_improvement_rate = min(100, int((self_improvements / max(total_outputs, 1) * 100)))
-    
+
   total_parameters = 10 * 512_000
   trained_parameters = int(total_parameters * (api_dependency_reduction / 100))
 
+  running_agents = sum(1 for a in _orkestra.ajanlar if getattr(a, "calisiyor", False)) if _orkestra else 0
+
   return {
-    "runningAgents": len(_orkestra.ajanlar) if _orkestra else 0,
+    "runningAgents": running_agents,
     "processedRequests": total_outputs,
     "errorCount": errors,
     "apiCalls": api_calls,
@@ -601,10 +610,14 @@ async def get_analytics():
 
 
 @app.get("/api/database/{filename}")
-async def get_database(filename: str):
-  """Database dosyaları"""
+async def get_database(filename: str, request: Request):
+  """Database dosyaları — opsiyonel DB_API_KEY koruması"""
+  db_api_key = os.environ.get("DB_API_KEY", "")
+  if db_api_key and request.headers.get("X-DB-Key", "") != db_api_key:
+    return {"error": "Yetkisiz erişim"}
+
   allowed_files = ["hafiza.json", "alerts.json", "tweets.json", "archive.json", "comment-profiles.json"]
-    
+
   if filename not in allowed_files:
     return {"error": "Erişim reddedildi"}
 
@@ -644,15 +657,16 @@ async def get_agent_logs(agent_name: str, lines: int = 50):
       return {"logs": []}
 
     logs = []
+    pattern = re.compile(r"(?<![\w])" + re.escape(agent_name) + r"(?![\w])")
     for log_fn in sorted(log_file.glob("sistem_*.log"), reverse=True)[:1]:
       try:
         async with aiofiles.open(log_fn, "r", encoding="utf-8") as f:
           content = await f.read()
           for line in content.split("\n"):
-            if agent_name in line:
+            if pattern.search(line):
               logs.append(line)
-      except:
-        pass
+      except Exception as e:
+        await hm.log_yaz(f"Ajan log okuma hatası: {e}", "WARN")
     return {"logs": logs[-lines:]}
   except Exception as e:
     return {"error": str(e), "logs": []}

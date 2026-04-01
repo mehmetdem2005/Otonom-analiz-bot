@@ -51,8 +51,8 @@ async def kisa_dosyalari_sil() -> int:
                 if boyut < MIN_ANLAMLI_BOYUT:
                     dosya.unlink()
                     silindi += 1
-            except Exception:
-                pass
+            except Exception as e:
+                await hm.log_yaz(f"Kısa dosya silme hatası ({dosya.name}): {e}", "WARN")
     await hm.log_yaz(f"Disk opt: {silindi} kısa dosya silindi", "OPT")
     return silindi
 
@@ -67,8 +67,8 @@ async def eski_loglari_temizle() -> int:
             if t < sinir:
                 log.unlink()
                 silindi += 1
-        except Exception:
-            pass
+        except Exception as e:
+            await hm.log_yaz(f"Eski log silme hatası ({log.name}): {e}", "WARN")
     await hm.log_yaz(f"Disk opt: {silindi} eski log silindi", "OPT")
     return silindi
 
@@ -85,8 +85,8 @@ async def eski_sonuclari_temizle(tut_son_n: int = 500) -> int:
         try:
             d.unlink()
             sildi += 1
-        except Exception:
-            pass
+        except Exception as e:
+            await hm.log_yaz(f"Eski sonuç silme hatası ({d.name}): {e}", "WARN")
     await hm.log_yaz(f"Disk opt: eski {sildi} sonuç dosyası silindi", "OPT")
     return sildi
 

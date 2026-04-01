@@ -27,8 +27,19 @@ BASE = Path(__file__).parent
 YEDEK_KLASOR = BASE / "kaynak_kod_arsivi"
 YEDEK_KLASOR.mkdir(exist_ok=True)
 
-# Bu dosyalar değiştirilemez
-KORUNAN_DOSYALAR = {"main.py", "kod_degistirici.py", ".env", ".env.example"}
+# Bu dosyalar değiştirilemez — LLM önerisi bile olsa reddedilir
+KORUNAN_DOSYALAR = {
+    "main.py",
+    "kod_degistirici.py",
+    "web_arayuzu.py",
+    "orkestra.py",
+    "ajan.py",
+    "llm_istemci.py",
+    "hafiza_yoneticisi.py",
+    "model_egitici.py",
+    ".env",
+    ".env.example",
+}
 
 _degisiklik_lock = asyncio.Lock()
 
@@ -115,11 +126,16 @@ async def oneri_uygula(oneri_dosyasi: Path, api_anahtari: str = "") -> dict:
             return {"basarili": False, "mesaj": f"Sözdizimi hatası, geri alındı: {hata}", "oneri": oneri}
 
         # Modülü yeniden yükle (eğer yüklenmiş ise)
+        # UYARI: reload() sonrası eski sınıf örnekleri (Ajan nesneleri) stale kalabilir.
+        # Kritik modüller için sistem yeniden başlatılması önerilir.
         modul_adi = hedef.stem
         if modul_adi in sys.modules:
             try:
                 importlib.reload(sys.modules[modul_adi])
-                await hm.log_yaz(f"Modül yeniden yüklendi: {modul_adi}", "INFO")
+                await hm.log_yaz(
+                    f"Modül yeniden yüklendi: {modul_adi} — mevcut nesne örnekleri stale olabilir",
+                    "WARN",
+                )
             except Exception as e:
                 await hm.log_yaz(f"Modül yeniden yükleme hatası: {e}", "WARN")
 

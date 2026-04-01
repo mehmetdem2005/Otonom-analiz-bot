@@ -136,8 +136,8 @@ async def hafizadan_ornekleri_topla(min_skor: float = 0.4) -> list[dict]:
                 }
                 ornekler.append(ornek)
 
-            except Exception:
-                pass
+            except Exception as e:
+                await hm.log_yaz(f"Eğitim örneği okuma hatası ({dosya.name}): {e}", "WARN")
 
     return ornekler
 

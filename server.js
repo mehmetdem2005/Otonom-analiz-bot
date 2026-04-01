@@ -42,7 +42,21 @@ const routerDeps = {
 };
 
 // --- Middleware ---
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Origin yoksa same-origin ya da non-browser istek — izin ver
+    if (!origin) return callback(null, true);
+    // Ekstra izinli origin'ler .env'den okunur
+    const extra = (process.env.CORS_ALLOWED_ORIGINS || "").split(",").filter(Boolean);
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    const isCodespace = /\.github\.dev$/.test(origin) || /\.app\.github\.dev$/.test(origin);
+    if (isLocal || isCodespace || extra.some((o) => origin.startsWith(o.trim()))) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: "4mb" }));
 app.use(express.static(PUBLIC_DIR));
 app.use("/temp", express.static(TEMP_DIR));

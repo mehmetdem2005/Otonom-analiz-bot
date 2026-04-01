@@ -2,6 +2,7 @@ const { spawn } = require("child_process");
 
 function runProcess(command, args, options = {}) {
   return new Promise((resolve) => {
+    const timeoutMs = options.timeout || 60000; // varsayılan 60 saniye
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
@@ -10,6 +11,15 @@ function runProcess(command, args, options = {}) {
 
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        child.kill("SIGTERM");
+        resolve({ code: 1, stdout, stderr: `${stderr}\nİşlem ${timeoutMs}ms sonra zaman aşımına uğradı`.trim() });
+      }
+    }, timeoutMs);
 
     child.stdout.on("data", (d) => {
       stdout += String(d);
@@ -20,13 +30,22 @@ function runProcess(command, args, options = {}) {
     });
 
     child.on("close", (code) => {
-      resolve({ code, stdout, stderr });
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve({ code, stdout, stderr });
+      }
     });
 
     child.on("error", (err) => {
-      resolve({ code: 1, stdout, stderr: `${stderr}\n${err.message}`.trim() });
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve({ code: 1, stdout, stderr: `${stderr}\n${err.message}`.trim() });
+      }
     });
   });
 }
 
 module.exports = { runProcess };
+
