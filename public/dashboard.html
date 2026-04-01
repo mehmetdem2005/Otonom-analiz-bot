@@ -306,6 +306,30 @@
             color: #e2e8f0;
         }
 
+        .clickable-card {
+            cursor: pointer;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+
+        .clickable-card:hover {
+            transform: translateY(-2px);
+            border-color: #f87171;
+        }
+
+        .error-entry {
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            border-radius: 6px;
+            padding: 8px;
+            margin-bottom: 8px;
+            background: rgba(127, 29, 29, 0.15);
+        }
+
+        .error-actions {
+            margin-top: 6px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
         /* ═══════════════════════════════════════════════════════════
            SPECIFIC PANELS
         ═══════════════════════════════════════════════════════════ */
@@ -629,6 +653,36 @@
                 <span class="menu-dot">●</span>
             </div>
 
+            <div class="menu-item" data-view="traces">
+                <span class="menu-icon">🧭</span>
+                <span>Ajan Trace</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="plan">
+                <span class="menu-icon">📋</span>
+                <span>Son Plan</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="memory">
+                <span class="menu-icon">🧠</span>
+                <span>Hafıza</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="plan">
+                <span class="menu-icon">📋</span>
+                <span>Son Plan</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="memory">
+                <span class="menu-icon">🧠</span>
+                <span>Hafıza</span>
+                <span class="menu-dot">●</span>
+            </div>
+
             <div class="menu-item" data-view="errors">
                 <span class="menu-icon">❌</span>
                 <span>Hata Logları</span>
@@ -690,7 +744,7 @@
                                     <div class="metric-title">İşlenen İstekler</div>
                                     <div class="metric-value" id="processedRequests">0</div>
                                 </div>
-                                <div class="metric-card">
+                                <div class="metric-card clickable-card" id="errorCard" onclick="openErrorPanel()" title="Hata detaylarını aç">
                                     <div class="metric-title">Hata Sayısı</div>
                                     <div class="metric-value" style="color: #f87171;" id="errorCount">0</div>
                                 </div>
@@ -736,11 +790,78 @@
                         </div>
                     </div>
 
+                    <div class="view-panel" data-view="traces">
+                        <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 12px;">
+                            <div class="panel-title">Ajan Karar İzleri (Trace)</div>
+                            <div id="traceSummary" style="display:grid; grid-template-columns: repeat(7, minmax(100px, 1fr)); gap:8px;"></div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <input id="traceEventFilter" placeholder="event (örn: tool_result)" style="padding:8px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink);" />
+                                <input id="traceToolFilter" placeholder="tool (örn: test_calistir)" style="padding:8px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink);" />
+                                <select id="traceOkFilter" style="padding:8px; border-radius:6px; border:1px solid var(--line); background:var(--panel); color:var(--ink);">
+                                    <option value="">ok: hepsi</option>
+                                    <option value="true">ok: true</option>
+                                    <option value="false">ok: false</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadTraceLogs()">Filtrele</button>
+                            </div>
+                            <div class="log-viewer" id="traceLogs"></div>
+                        </div>
+                    </div>
+
+                    <!-- Son Plan -->
+                    <div class="view-panel" data-view="plan">
+                        <div style="display:flex;flex-direction:column;height:100%;padding:16px;gap:12px;">
+                            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>Son Fix Planı (plan_json)</span>
+                                <button class="btn btn-secondary" onclick="loadPlanView()">Yenile</button>
+                            </div>
+                            <div id="planView" class="log-viewer" style="font-size:13px;white-space:pre-wrap;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Hafıza -->
+                    <div class="view-panel" data-view="memory">
+                        <div style="display:flex;flex-direction:column;height:100%;padding:16px;gap:12px;">
+                            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>Ajan Hafızası</span>
+                                <button class="btn btn-secondary" onclick="loadMemoryView()">Yenile</button>
+                            </div>
+                            <!-- İstatistik kartları -->
+                            <div id="memoryStatsRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                                <div class="stat-card"><div class="stat-label">Toplam Kayıt</div><div class="stat-value" id="msTotalRec">—</div></div>
+                                <div class="stat-card"><div class="stat-label">Fix Denemesi</div><div class="stat-value" id="msFixAttempts">—</div></div>
+                                <div class="stat-card"><div class="stat-label">Rollback</div><div class="stat-value" id="msRollbacks" style="color:#f87171">—</div></div>
+                                <div class="stat-card"><div class="stat-label">Başarı Oranı</div><div class="stat-value" id="msSuccessRate" style="color:#22c55e">—</div></div>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input id="memorySearchQuery" class="form-input" placeholder="Hafızada ara: timeout, rollback, path..." style="flex:1;" />
+                                <button class="btn btn-secondary" onclick="loadMemorySearch()">Ara</button>
+                            </div>
+                            <div id="memorySearchView" class="log-viewer" style="font-size:12px;max-height:170px;"></div>
+                            <div id="memoryView" class="log-viewer" style="font-size:12px;"></div>
+                        </div>
+                    </div>
+
                     <!-- Error Logs -->
                     <div class="view-panel" data-view="errors">
                         <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 12px;">
-                            <div class="panel-title">Hata Logları</div>
-                            <div class="log-viewer" id="errorLogs"></div>
+                            <div class="panel-title">
+                                <span>Hata Detayları</span>
+                                <div style="display:flex; gap:8px;">
+                                    <button class="btn btn-secondary" onclick="loadErrorDetails()">Hataları Yenile</button>
+                                    <button class="btn btn-secondary" onclick="loadResolvedErrors()">Çözülenleri Yenile</button>
+                                </div>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; height:100%; min-height: 0;">
+                                <div style="display:flex; flex-direction:column; min-height:0;">
+                                    <div style="font-size:12px; color:#f87171; font-weight:700; margin-bottom:6px;">Açık Hatalar</div>
+                                    <div class="log-viewer" id="errorLogs"></div>
+                                </div>
+                                <div style="display:flex; flex-direction:column; min-height:0;">
+                                    <div style="font-size:12px; color:#22c55e; font-weight:700; margin-bottom:6px;">Çözülen Hatalar (30 gün)</div>
+                                    <div class="log-viewer" id="resolvedErrorLogs"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -837,6 +958,7 @@
         let logBuffer = [];
         let lastRenderedLogSet = new Set();
         const MAX_LOGS = 500;
+        let recentErrorsCache = [];
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -847,8 +969,16 @@
             loadInitialData();
             loadSystemStatus();
             loadRecentLogs();
+            loadTraceLogs();
+            loadTraceSummary();
+            loadErrorDetails();
+            loadResolvedErrors();
             setInterval(loadSystemStatus, 3000);
             setInterval(loadRecentLogs, 3000);
+            setInterval(loadTraceLogs, 4000);
+            setInterval(loadTraceSummary, 6000);
+            setInterval(loadErrorDetails, 5000);
+            setInterval(loadResolvedErrors, 15000);
         });
 
         function initializeUI() {
@@ -874,6 +1004,9 @@
                 'messages': 'Konuşmalar',
                 'inter-comm': 'Ajan İletişimi',
                 'logs': 'Tüm Loglar',
+                'traces': 'Ajan Trace',
+                'plan': 'Son Fix Planı',
+                'memory': 'Ajan Hafızası',
                 'errors': 'Hata Logları',
                 'database': 'Database',
                 'analytics': 'AI Gelişimi'
@@ -1126,6 +1259,262 @@
                 }
             } catch (error) {
                 console.error('Failed to load logs:', error);
+            }
+        }
+
+        async function loadTraceLogs() {
+            try {
+                const eventFilter = encodeURIComponent((document.getElementById('traceEventFilter')?.value || '').trim());
+                const toolFilter = encodeURIComponent((document.getElementById('traceToolFilter')?.value || '').trim());
+                const okFilter = encodeURIComponent((document.getElementById('traceOkFilter')?.value || '').trim());
+                const response = await fetch(`/api/traces/recent?lines=120&event=${eventFilter}&tool=${toolFilter}&ok=${okFilter}`);
+                const data = await response.json();
+                const traces = Array.isArray(data.traces) ? data.traces : [];
+                const elem = document.getElementById('traceLogs');
+                if (!elem) return;
+
+                if (!traces.length) {
+                    elem.innerHTML = '<div class="log-line"><span class="log-msg">Henüz trace kaydı yok.</span></div>';
+                    return;
+                }
+
+                elem.innerHTML = traces.map((t) => {
+                    const ts = escapeHtml(String(t.ts || '-'));
+                    const ev = escapeHtml(String(t.event || 'event'));
+                    const details = escapeHtml(JSON.stringify(t));
+                    return `<div class="log-line">
+                        <span class="log-time">${ts}</span>
+                        <span class="log-level-info"> [${ev}]</span>
+                        <div class="log-msg" style="margin-top:4px; white-space: pre-wrap;">${details}</div>
+                    </div>`;
+                }).join('');
+                elem.scrollTop = elem.scrollHeight;
+            } catch (error) {
+                console.error('Failed to load traces:', error);
+            }
+        }
+
+        async function loadTraceSummary() {
+            try {
+                const response = await fetch('/api/traces/summary?lines=500');
+                const data = await response.json();
+                const elem = document.getElementById('traceSummary');
+                if (!elem) return;
+
+                const total = Number(data.total || 0);
+                const toolResults = Number(data.toolResults || 0);
+                const successRate = Number(data.successRate || 0);
+                const denied = Number(data.denied || 0);
+                const retries = Number(data.retries || 0);
+                const rollbacks = Number(data.rollbacks || 0);
+                const lastError = String(data.lastError || '-');
+                const lastDeniedReason = String(data.lastDeniedReason || '-');
+
+                const item = (label, value) => `<div style="background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px;">
+                    <div style="font-size:11px; color:#94a3b8;">${label}</div>
+                    <div style="font-size:18px; font-weight:700; color:var(--accent);">${value}</div>
+                </div>`;
+
+                elem.innerHTML = [
+                    item('Toplam Trace', total),
+                    item('Tool Result', toolResults),
+                    item('Başarı %', successRate),
+                    item('Denied', denied),
+                    item('Retry', retries),
+                    item('Rollback', rollbacks),
+                    item('Son Hata', escapeHtml(lastError).slice(0, 80)),
+                    item('Son Deny', escapeHtml(lastDeniedReason).slice(0, 80)),
+                ].join('');
+            } catch (error) {
+                console.error('Failed to load trace summary:', error);
+            }
+        }
+
+        async function loadPlanView() {
+            try {
+                const response = await fetch('/api/traces/summary?lines=500');
+                const data = await response.json();
+                const elem = document.getElementById('planView');
+                if (!elem) return;
+                const plan = data.lastPlanJson;
+                if (!plan || !Object.keys(plan).length) {
+                    elem.textContent = 'Henüz plan_json kaydı yok.';
+                    return;
+                }
+                elem.textContent = JSON.stringify(plan, null, 2);
+            } catch (err) {
+                console.error('loadPlanView error', err);
+            }
+        }
+
+        async function loadMemoryView() {
+            try {
+                const [recResp, statsResp] = await Promise.all([
+                    fetch('/api/memory/recent?limit=50'),
+                    fetch('/api/memory/stats'),
+                ]);
+                const data = await recResp.json();
+                const stats = await statsResp.json();
+
+                // İstatistik kartlarını güncelle
+                const setEl = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+                setEl('msTotalRec', stats.total ?? '—');
+                setEl('msFixAttempts', stats.fix_attempts ?? '—');
+                setEl('msRollbacks', stats.rollbacks ?? '—');
+                setEl('msSuccessRate', stats.overall_success_rate != null ? (stats.overall_success_rate * 100).toFixed(1) + '%' : '—');
+
+                const elem = document.getElementById('memoryView');
+                if (!elem) return;
+                const recs = Array.isArray(data.records) ? data.records : [];
+                if (!recs.length) {
+                    elem.innerHTML = '<div class="log-line"><span class="log-msg">Hafıza kaydı yok.</span></div>';
+                    return;
+                }
+                elem.innerHTML = recs.map(r => {
+                    const ts = r.ts ? new Date(r.ts * 1000).toLocaleTimeString('tr-TR') : '—';
+                    const ev = escapeHtml(r.kind || '-');
+                    const outcome = r.outcome || '-';
+                    const color = ev === 'rollback' ? '#f87171' : outcome === 'success' ? '#22c55e' : '#f59e0b';
+                    return `<div class="log-line">
+                        <span class="log-time">${ts}</span>
+                        <span style="color:${color};font-weight:700;"> [${ev}/${escapeHtml(outcome)}]</span>
+                        <span class="log-msg"> ${escapeHtml(r.path || '')} — ${escapeHtml((r.hint || '').slice(0, 120))}</span>
+                    </div>`;
+                }).join('');
+                elem.scrollTop = elem.scrollHeight;
+            } catch (err) {
+                console.error('loadMemoryView error', err);
+            }
+        }
+
+        async function loadMemorySearch() {
+            try {
+                const qElem = document.getElementById('memorySearchQuery');
+                const outElem = document.getElementById('memorySearchView');
+                if (!qElem || !outElem) return;
+                const query = String(qElem.value || '').trim();
+                if (!query) {
+                    outElem.innerHTML = '<div class="log-line"><span class="log-msg">Arama için bir sorgu gir.</span></div>';
+                    return;
+                }
+                const response = await fetch(`/api/memory/search?query=${encodeURIComponent(query)}&limit=15`);
+                const data = await response.json();
+                const items = Array.isArray(data.results) ? data.results : [];
+                if (!items.length) {
+                    outElem.innerHTML = '<div class="log-line"><span class="log-msg">Eşleşme bulunamadı.</span></div>';
+                    return;
+                }
+                outElem.innerHTML = items.map((item) => {
+                    const rec = item.record || {};
+                    const score = Number(item.score || 0).toFixed(3);
+                    const ts = rec.ts ? new Date(rec.ts * 1000).toLocaleTimeString('tr-TR') : '—';
+                    return `<div class="log-line">
+                        <span class="log-time">${ts}</span>
+                        <span style="color:#60a5fa;font-weight:700;"> [skor:${score}]</span>
+                        <span class="log-msg"> ${escapeHtml(rec.path || '')} — ${escapeHtml((rec.hint || rec.objective || '').slice(0, 120))}</span>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                console.error('loadMemorySearch error', err);
+            }
+        }
+
+        function openErrorPanel() {
+            switchView('errors');
+            loadErrorDetails();
+            loadResolvedErrors();
+        }
+
+        async function loadErrorDetails() {
+            try {
+                const response = await fetch('/api/errors/recent?lines=250');
+                const data = await response.json();
+                const errors = Array.isArray(data.errors) ? data.errors : [];
+                recentErrorsCache = errors;
+
+                const elem = document.getElementById('errorLogs');
+                if (!elem) return;
+
+                if (!errors.length) {
+                    elem.innerHTML = '<div class="log-line"><span class="log-msg">Açık hata bulunmuyor.</span></div>';
+                    return;
+                }
+
+                elem.innerHTML = errors.slice().reverse().map((err) => {
+                    const ts = escapeHtml(String(err.timestamp || '-'));
+                    const msg = escapeHtml(String(err.message || err.raw || 'Bilinmeyen hata'));
+                    const raw = escapeHtml(String(err.raw || ''));
+                    const id = escapeHtml(String(err.id || ''));
+                    return `<div class="error-entry">
+                        <div><span class="log-level-error">[ERROR]</span> <span class="log-time">${ts}</span></div>
+                        <div class="log-msg" style="margin-top:4px;">${msg}</div>
+                        <div class="log-msg" style="opacity:0.75; margin-top:4px; font-size:11px;">${raw}</div>
+                        <div class="error-actions">
+                            <button class="btn btn-secondary" onclick="markErrorResolved('${id}')">Çözüldü Olarak İşaretle</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load error details:', error);
+            }
+        }
+
+        async function markErrorResolved(errorId) {
+            try {
+                const found = recentErrorsCache.find(e => String(e.id) === String(errorId));
+                if (!found) return;
+
+                const payload = {
+                    message: found.message || '',
+                    raw: found.raw || '',
+                    source: 'dashboard-manual'
+                };
+
+                const response = await fetch('/api/errors/resolve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (!data.ok) {
+                    addLog('ERROR', `Çözülen hata kaydı başarısız: ${data.error || 'bilinmeyen hata'}`);
+                    return;
+                }
+
+                addLog('SUCCESS', 'Hata çözüldü olarak kaydedildi.');
+                await loadResolvedErrors();
+            } catch (error) {
+                addLog('ERROR', `Çözülen hata işaretleme hatası: ${error.message}`);
+            }
+        }
+
+        async function loadResolvedErrors() {
+            try {
+                const response = await fetch('/api/errors/resolved?limit=250');
+                const data = await response.json();
+                const resolved = Array.isArray(data.resolved) ? data.resolved : [];
+                const elem = document.getElementById('resolvedErrorLogs');
+                if (!elem) return;
+
+                if (!resolved.length) {
+                    elem.innerHTML = '<div class="log-line"><span class="log-msg">Henüz çözülen hata kaydı yok.</span></div>';
+                    return;
+                }
+
+                elem.innerHTML = resolved.slice().reverse().map((item) => {
+                    const ts = escapeHtml(String(item.resolvedAt || '-'));
+                    const exp = escapeHtml(String(item.expiresAt || '-'));
+                    const msg = escapeHtml(String(item.message || ''));
+                    const src = escapeHtml(String(item.source || 'manual'));
+                    return `<div class="log-line">
+                        <span class="log-time">${ts}</span>
+                        <span class="log-level-success"> [RESOLVED]</span>
+                        <span class="log-msg"> ${msg}</span>
+                        <div style="font-size:11px; opacity:0.8; margin-top:4px;">kaynak: ${src} | silinme: ${exp}</div>
+                    </div>`;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load resolved errors:', error);
             }
         }
 

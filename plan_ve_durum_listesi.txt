@@ -49,3 +49,42 @@ PLANLANAN / EK GELISTIRME
 ❌ DAL 8 paragraf alti otomatik inline grafik yerlestirme
 ✅ DAL 11 alarmlari makale uretim prompt baglamina enjekte edildi
 ❌ DAL 12 Edge TTS zaman bilgisinden kelime-bazli altyazi zamanlama
+
+2026-04-01 TEMIZLIK GUNCELLEMESI
+✅ Port 3000 Node/Express tarafi kaldirildi
+✅ 3000'e ait routes/services/utils ve ilgili veri dosyalari silindi
+✅ node_modules ve package-lock kalintilari temizlendi
+✅ README sadece Port 8000 Python/FastAPI odakli olacak sekilde yenilendi
+❌ 3000 tarafini geri getirme (istenmiyor)
+
+2026-04-01 GERCEK AJAN/AGI YOL HARITASI
+✅ Dev plan klasoru olusturuldu: dev_plan/DEV_PLAN_MASTER.txt
+✅ Illuzyon degil, olculebilir ve test edilebilir sistem ilkesi kabul edildi
+✅ Yasal kaynak ilkesi: sizdirilmis kod YOK, acik kaynak ve resmi dokuman EVET
+✅ ADIM-1 ReAct state machine cekirdegi (ilk surum eklendi)
+✅ ADIM-1 tool runner + timeout/retry + trace log (ilk surum eklendi)
+✅ ADIM-1 test seti (temel 3 unit test) calisiyor
+❌ ADIM-2 gercek arac guvenlik katmani (sirada)
+❌ ADIM-3 semantik hafiza (sirada)
+❌ ADIM-5 API bagimsiz yerel birincil mod (sirada)
+
+EK GUNCELLEME-15 (2026-07-28)
+✅ _memory_hint_for_path test-gate ve rollback guidance mesajlarına enjekte edildi
+✅ ajan.py live akisinda MemoryStore ortak ornegi build_default_registry + AgentCore'a baglandi
+✅ react_tools.py: hafiza_oku + hafiza_yaz araclari eklendi (9 arac toplam)
+✅ /api/memory/stats endpoint eklendi (total, rollbacks, fix_attempts, success_rate, by_path)
+✅ Dashboard Hafiza view: 4 istatistik karti + alan adi duzeltmesi (kind/path/hint/ts/outcome)
+✅ 3 yeni unit test eklendi (toplam 32/32 PASS)
+✅ Backend /api/traces/summary + /api/memory/recent + /api/memory/stats → 200 OK
+❌ ADIM-3 tam semantik hafiza (embedding tabanli vector store)
+❌ Hafiza istatistik kart grafikleri (zaman serisi, path bazinda bar chart)
+❌ Ajan otomatik kendi planini revize edip yazma dongusu (self-edit loop)
+
+EK GUNCELLEME-16 (2026-04-01)
+✅ MemoryStore semantic_search aktif kullanima alindi (token overlap skorlamasi)
+✅ react_tools.py: hafiza_ara araci eklendi
+✅ web_arayuzu.py: /api/memory/search endpointi eklendi
+✅ Dashboard Hafiza paneline semantik arama kutusu + skorlu sonuc listesi eklendi
+✅ Yeni testler eklendi: test_semantic_search_returns_relevant_records, test_semantic_search_path_filter, test_hafiza_ara_entegrasyon
+✅ Tum testler gecti: 35/35 PASS
+❌ Embedding tabanli vector semantik hafiza (bir sonraki iterasyon)

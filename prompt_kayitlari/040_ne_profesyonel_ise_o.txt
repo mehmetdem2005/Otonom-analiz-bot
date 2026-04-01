@@ -1,0 +1,13 @@
+PROMPT KAYDI 040
+Tarih: 2026-04-01
+Kullanici talebi: "ne profesyonel ise onu yapalım"
+
+Uygulanan profesyonel yol:
+- Ilgisiz/dıs değişikliklere dokunmadan ajan-hafiza hattı doğrulandı.
+- Python syntax kontrolu (compileall) temiz.
+- Tüm testler geçti (35/35).
+- API doğrulamaları yapıldı:
+  - /api/traces/summary
+  - /api/memory/stats
+  - /api/memory/search
+- Commit kapsamı sadece ilgili dosyalar olacak şekilde daraltıldı.
