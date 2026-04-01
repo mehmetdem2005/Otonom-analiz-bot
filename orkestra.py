@@ -16,6 +16,9 @@ from ajan import Ajan, PERSPEKTIFLER
 import hafiza_yoneticisi as hm
 import disk_yoneticisi as dm
 import kod_degistirici as kd
+import egitim_veri_uretici as evu
+import model_egitici as me
+import model_yoneticisi as my
 
 BASE = Path(__file__).parent
 BASLANGIC_AJAN_SAYISI = 10
@@ -32,6 +35,7 @@ class Orkestra:
         self.durum_callback: Optional[Callable] = None
         self._sonraki_ajan_id = BASLANGIC_AJAN_SAYISI
         self._yonetim_task: Optional[asyncio.Task] = None
+        self._yonetim_sayac = 0
         self._olustur_baslangic_ajanlar()
 
     def _olustur_baslangic_ajanlar(self):
@@ -90,6 +94,14 @@ class Orkestra:
 
                 # 3) Dinamik ajan talepleri
                 await self._dinamik_ajan_isle()
+
+                # 4) Eğitim verisi üretimi (her 30 dakikada bir)
+                self._yonetim_sayac += 1
+                if self._yonetim_sayac % 30 == 0:
+                    await evu.dataset_olustur(self.api_anahtari)
+
+                # 5) Model eğitimi (model_egitici kendi 6h guard'ını yönetir)
+                await me.egitim_calistir(self.api_anahtari)
 
             except asyncio.CancelledError:
                 break
@@ -175,6 +187,7 @@ class Orkestra:
             "ajan_sayisi": len(self.ajanlar),
             "toplam_tur": self.toplam_tur,
             "disk_doluluk": round(dm.disk_doluluk_yuzde(), 1),
+            "model_durumu": my.get().ozet_rapor(),
             "zaman": datetime.now().isoformat(),
             "ajanlar": [
                 {
