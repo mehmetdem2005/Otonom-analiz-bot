@@ -1,0 +1,17 @@
+Tarih: 2026-04-01
+İstek: En baştan tüm klasör/dosya/fonksiyon/uyumluluk kontrolü
+
+Özet:
+- Python syntax: tüm .py dosyaları derlendi, temiz.
+- Python paket uyumluluğu: pip check temiz.
+- JS syntax: node --check ile temiz.
+- API testleri: /, /durum, /api/analytics, /api/logs/recent, /api/database/*, /api/agents, /api/disk-usage çalışıyor.
+- Kritik hata bulundu: Durdur sonrası Baslat'ta ajanlar tekrar aktifleşmiyordu.
+
+Fix:
+- orkestra.py -> Orkestra.baslat içinde tüm ajanlar için:
+  - ajan.calisiyor = True
+  - durum "durduruldu" ise "bekliyor" reseti
+
+Sonuç:
+- Durdur/Başlat döngüsü sonrası ajanlar yeniden üretime geçiyor.

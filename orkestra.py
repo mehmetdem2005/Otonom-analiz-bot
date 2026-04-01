@@ -85,6 +85,11 @@ class Orkestra:
         if self.calisiyor:
             return
         self.calisiyor = True
+        # Durdur-sonrası yeniden başlatmada ajanları tekrar aktif hale getir.
+        for ajan in self.ajanlar:
+            ajan.calisiyor = True
+            if ajan.durum == "durduruldu":
+                ajan.durum = "bekliyor"
         await hm.log_yaz(f"Orkestra başladı — {len(self.ajanlar)} ajan")
 
         self.tasklar = [
