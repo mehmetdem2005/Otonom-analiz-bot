@@ -362,7 +362,7 @@ async function loglariYukle() {
     kutu.scrollTop = kutu.scrollHeight;
 
     const hataLogs = logs.filter(s => s.includes('[ERROR]') || s.includes('[WARN]'));
-    document.getElementById('errors-panel').innerHTML = `<pre>${hataLogs.length ? hataLogs.join('\n') : 'Henüz hata yok.'}</pre>`;
+    document.getElementById('errors-panel').innerHTML = `<pre>${hataLogs.length ? hataLogs.join('\\n') : 'Henüz hata yok.'}</pre>`;
     if (hataLogs.length > sonHataSayisi) {
       hataUyarisiAc();
     }
