@@ -1,0 +1,45 @@
+PROMPT 014 — Önceki Rapordaki Kalan 2 Madde Düzeltmesi
+Tarih: 2026-04-01
+Commit: 17501ac
+
+=== KULLANICI İSTEĞİ ===
+"önceki yazıttaki hataları da düzelt"
+
+=== ÖNCEKI RAPORDA KALAN 2 MADDE ===
+
+Önceki 7 maddelik rapordan 5 madde zaten commit 1520093'te düzeltilmişti.
+Kalan 2 madde:
+
+--- Madde 5 (Dual UI Maintenance Risk) ---
+SORUN: web_arayuzu.py içinde ~377 satırlık inline HTML string (HTML = """...""")
+       ayrıca public/index.html (Node.js UI) ve public/dashboard.html vardı.
+       3 farklı UI kaynağı → senkronizasyon ve bakım riski.
+
+DÜZELTME:
+- HTML inline string → public/ajan_arayuz.html dosyasına taşındı
+- web_arayuzu.py'de _html_yukle() fonksiyonu eklendi (diskten okur)
+- anasayfa() → HTMLResponse(content=_html_yukle())
+- legacy_arayuz() → HTMLResponse(content=_html_yukle())
+- _dashboard_html_oku() fallback da _html_yukle() kullanır
+
+Sonuç: Python sistemi artık public/ altındaki HTML dosyalarını yönetiyor.
+       UI değiştirmek için .py dosyası yerine .html dosyası düzenlenir.
+
+--- Madde 7 (Mixed Indentation) ---
+SORUN: web_arayuzu.py endpoint fonksiyonlarında 2-space ve 4-space karışımı.
+       2-space kullanan fonksiyonlar:
+         get_agents_list, get_analytics, get_database,
+         get_recent_logs, get_agent_logs, get_disk_usage
+
+DÜZELTME: Tümü 4-space (PEP 8 standardı) ile normalize edildi.
+          Toplam 6 fonksiyon, ~80 satır düzeltildi.
+
+=== TEST SONUÇLARI ===
+- python -m py_compile web_arayuzu.py → OK
+- curl http://localhost:8000/ → 200 OK
+- curl http://localhost:8000/api/analytics → 200 OK
+
+=== ÖZET — TÜM DÜZELTMELER TAMAMLANDI ===
+
+Önceki 7 maddelik rapordan 7/7 düzeltildi ✅
+Yeni 16 maddelik rapordan 15/16 düzeltildi ✅ (O1: SSE zaten doğruydu)
