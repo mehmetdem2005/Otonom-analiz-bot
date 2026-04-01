@@ -64,8 +64,9 @@ async def _hash_kaydet(icerik: str):
 
 
 async def hafizaya_yaz(ajan_id: int, tur: int, icerik: str, etiket: str = "genel") -> bool:
-    if await duplikat_mi(icerik):
-        return False
+    # Duplikat kontrol geçici kapatıldı (debug)
+    # if await duplikat_mi(icerik):
+    #     return False
     zaman = datetime.now().strftime("%Y%m%d_%H%M%S")
     dosya = KLASORLER["hafiza"] / f"{zaman}_a{ajan_id:02d}_t{tur:04d}_{etiket[:20]}.md"
     meta = f"---\najan: {ajan_id}\ntur: {tur}\nzaman: {datetime.now().isoformat()}\netiket: {etiket}\n---\n\n"

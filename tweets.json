@@ -1,0 +1,27 @@
+[
+  {
+    "text": "Yapay zeka yarisi yalniz model kalitesi degil; enerji, veri ve ciplere erisim savasidir.",
+    "tone": "stratejik",
+    "motifs": ["enerji", "hesaplama", "stratejik avantaj"]
+  },
+  {
+    "text": "Likidite bol ama dogru sektor secimi yoksa sermaye verimsiz yanar.",
+    "tone": "finansal",
+    "motifs": ["likidite", "sektor secimi", "verimlilik"]
+  },
+  {
+    "text": "Siber guvenlik artik IT konusu degil; is surekliligi ve ulusal kapasite meselesi.",
+    "tone": "sert",
+    "motifs": ["siber risk", "is surekliligi", "ulusal kapasite"]
+  },
+  {
+    "text": "Anlatiyi kazanan aktor, piyasa fiyatlamasini ve kamu beklentisini de yonetir.",
+    "tone": "medya",
+    "motifs": ["anlati", "beklenti", "fiyatlama"]
+  },
+  {
+    "text": "Tedarik zincirindeki tek kirilma noktasi, butun stratejik plani bozabilir.",
+    "tone": "uyarici",
+    "motifs": ["tedarik", "kirilganlik", "stratejik plan"]
+  }
+]

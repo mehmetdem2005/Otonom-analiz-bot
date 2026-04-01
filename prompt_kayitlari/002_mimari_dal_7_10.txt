@@ -1,0 +1,12 @@
+PROMPT 002
+Tarih: 2026-03-27
+Icerik Ozeti:
+- NEXUS-120 tum DAL agaci (1-15)
+- Eksik dallar DAL 7, 8, 9, 10 icin mimari planlar
+- DAL 7: Otonom kapak cizimi
+- DAL 8: Dinamik veri gorsellestirme
+- DAL 9: Golge dagitim agi (X / Telegram)
+- DAL 10: Reserved
+- Groq model notu: llama-3.3-70b-versatile
+- Promptlarin text dosyasinda saklanmasi
+- Planlananlarin liste dosyasinda tik/x ile takip edilmesi

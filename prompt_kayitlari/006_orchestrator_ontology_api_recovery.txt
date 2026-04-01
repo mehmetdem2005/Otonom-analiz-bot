@@ -1,0 +1,14 @@
+Tarih: 2026-03-28
+Konu: Yarım kalan gelistirme turunun toparlanmasi, eksik route omurgasinin geri kurulmasi, ontoloji motoru ve ajan orkestratorunun aktif akisa baglanmasi.
+
+Yapilanlar:
+- Eksik routes/apiRoutes.js yeniden olusturuldu.
+- Generate / generate-bundle / cover / podcast / video / future / comments / deep-expand / archive / osint / distribution endpointleri baglandi.
+- Standart hata cevabi ve merkezi catch mantigi eklendi.
+- Ontoloji analizi ve secili ajan orkestrasyonu bundle uretimine entegre edildi.
+- Konsensus sentezi ve X ses profili / tweet benzerligi eklendi.
+- DALL-E retry/backoff ve Pollinations fallback guclendirildi.
+- Frontend'e ontoloji, ajan ve konsensus panelleri eklendi.
+
+Not:
+- Gercek X ve Telegram yayinlari kimlik bilgileri yoksa simulasyon/fallback modunda calisir.

@@ -15,8 +15,8 @@ import aiofiles
 from datetime import datetime
 from pathlib import Path
 
-import anthropic
 import hafiza_yoneticisi as hm
+import llm_istemci as llm
 
 BASE = Path(__file__).parent
 CIKTI_KLASORU = BASE / "egitim_verisi"
@@ -142,7 +142,12 @@ async def hafizadan_ornekleri_topla(min_skor: float = 0.4) -> list[dict]:
     return ornekler
 
 
-async def plandan_ornek_uret(api_anahtari: str, ornek_sayisi: int = 20) -> list[dict]:
+async def plandan_ornek_uret(
+    llm_saglayici: str,
+    api_anahtari: str,
+    model_adi: str,
+    ornek_sayisi: int = 20,
+) -> list[dict]:
     """
     planlar/ içeriğinden Claude ile sentetik Q&A örnekleri üretir.
     Bu, modelin sistemin hedeflerini içselleştirmesini sağlar.
@@ -151,31 +156,29 @@ async def plandan_ornek_uret(api_anahtari: str, ornek_sayisi: int = 20) -> list[
     if not planlar or planlar == "(henüz plan yok)":
         return []
 
-    client = anthropic.AsyncAnthropic(api_key=api_anahtari)
     ornekler = []
 
     try:
-        yanit = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=4000,
-            system=(
+        yanit_metin = await llm.metin_uret(
+            (
                 "Sen bir eğitim verisi üreticisisin. "
                 "Verilen metinden, bir yapay zeka modelini eğitmek için "
                 "instruction-following çiftleri üret. "
                 "Çıktı: her satırda bir JSON object, format: "
                 '{"soru": "...", "cevap": "..."}'
             ),
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Bu sistem planlarından {ornek_sayisi} adet eğitim çifti üret. "
-                    f"Her çift sistemin amacını, mimarisini veya öğrenmesi gereken bir kavramı kapsamalı.\n\n"
-                    f"{planlar[:4000]}"
-                ),
-            }],
+            (
+                f"Bu sistem planlarından {ornek_sayisi} adet eğitim çifti üret. "
+                f"Her çift sistemin amacını, mimarisini veya öğrenmesi gereken bir kavramı kapsamalı.\n\n"
+                f"{planlar[:4000]}"
+            ),
+            max_tokens=4000,
+            saglayici=llm_saglayici,
+            api_key=api_anahtari,
+            model=model_adi,
         )
 
-        for satir in yanit.content[0].text.strip().splitlines():
+        for satir in yanit_metin.strip().splitlines():
             satir = satir.strip()
             if not satir.startswith("{"):
                 continue
@@ -203,7 +206,7 @@ async def plandan_ornek_uret(api_anahtari: str, ornek_sayisi: int = 20) -> list[
     return ornekler
 
 
-async def dataset_olustur(api_anahtari: str) -> Path | None:
+async def dataset_olustur(llm_saglayici: str, api_anahtari: str, model_adi: str) -> Path | None:
     """
     Ana fonksiyon. Tüm kaynakları birleştirir, JSONL yazar.
     Döndürür: oluşturulan dosya yolu (yeterli örnek yoksa None)
@@ -211,7 +214,7 @@ async def dataset_olustur(api_anahtari: str) -> Path | None:
     await hm.log_yaz("Eğitim verisi üretiliyor...", "TRAIN")
 
     gercek = await hafizadan_ornekleri_topla(min_skor=0.4)
-    sentetik = await plandan_ornek_uret(api_anahtari, ornek_sayisi=30)
+    sentetik = await plandan_ornek_uret(llm_saglayici, api_anahtari, model_adi, ornek_sayisi=30)
 
     tum_ornekler = gercek + sentetik
 

@@ -1,0 +1,11 @@
+PROMPT 003
+Tarih: 2026-03-27
+Icerik:
+"hatalari ve problemleri coz eksikleri gider"
+
+Yapilan ana islemler:
+- Groq baglantisi yoksa makale/yorum/derinlesme/chronos fallback moduna alindi.
+- Makale uretiminde OSINT alarm ozetleri prompt baglamina eklendi.
+- DAL 8 icin grafik PNG indirme butonu eklendi.
+- Deep-expand endpointinde yazim hatasi duzeltildi.
+- Node modules tsconfig hata gurultusu icin eksik @ljharb/tsconfig paketi eklendi.

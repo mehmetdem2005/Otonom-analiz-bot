@@ -1,0 +1,7 @@
+PROMPT 001
+Tarih: 2026-03-27
+Icerik:
+"merhaba seninle bir uygulama yapcaz sifirdan basla"
+
+Not:
+- Projeyi sifirdan kurma talebi.

@@ -1,0 +1,9 @@
+Tarih: 2026-04-01
+İstek: tamam commit et merge et başlat tarayicida
+
+Yapılanlar:
+1) Çalışma ağacı kontrol edildi.
+2) Değişiklikler commit edildi.
+3) main branch remote'a push edilerek merge akışı tamamlandı.
+4) Uygulama başlatıldı.
+5) Tarayıcıda açıldı.

@@ -12,8 +12,8 @@ import aiofiles
 from pathlib import Path
 from datetime import datetime, timedelta
 
-import anthropic
 import hafiza_yoneticisi as hm
+import llm_istemci as llm
 
 BASE = Path(__file__).parent
 
@@ -91,7 +91,12 @@ async def eski_sonuclari_temizle(tut_son_n: int = 500) -> int:
     return sildi
 
 
-async def hafizayi_ozetle_ve_sikistir(api_anahtari: str, max_dosya: int = 20) -> int:
+async def hafizayi_ozetle_ve_sikistir(
+    llm_saglayici: str,
+    api_anahtari: str,
+    model_adi: str,
+    max_dosya: int = 20,
+) -> int:
     """
     Eski hafıza dosyalarını LLM ile özetler:
     - Gereksiz kısa cümleleri atar
@@ -111,7 +116,6 @@ async def hafizayi_ozetle_ve_sikistir(api_anahtari: str, max_dosya: int = 20) ->
     if not dosyalar:
         return 0
 
-    client = anthropic.AsyncAnthropic(api_key=api_anahtari)
     ozetlen = 0
 
     for dosya in dosyalar:
@@ -124,10 +128,8 @@ async def hafizayi_ozetle_ve_sikistir(api_anahtari: str, max_dosya: int = 20) ->
                 ozetlen += 1
                 continue
 
-            yanit = await client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=512,
-                system=(
+            ozet = await llm.metin_uret(
+                (
                     "Sen bir bilgi sıkıştırma motorusun. "
                     "Verilen metni şu kurallara göre yoğunlaştır:\n"
                     "1. Gereksiz kısa cümleleri (50 karakterden az) çıkar.\n"
@@ -137,9 +139,13 @@ async def hafizayi_ozetle_ve_sikistir(api_anahtari: str, max_dosya: int = 20) ->
                     "5. Çıktın orijinalin en fazla %40'ı kadar olsun.\n"
                     "6. Yorum ekleme, sadece sıkıştır."
                 ),
-                messages=[{"role": "user", "content": icerik[:3000]}],
+                icerik[:3000],
+                max_tokens=512,
+                saglayici=llm_saglayici,
+                api_key=api_anahtari,
+                model=model_adi,
             )
-            ozet = yanit.content[0].text.strip()
+            ozet = ozet.strip()
 
             if ozet:
                 ozet_ile_meta = f"---\n[SIKIŞTIRILD: {datetime.now().isoformat()}]\n---\n\n{ozet}"
@@ -154,7 +160,7 @@ async def hafizayi_ozetle_ve_sikistir(api_anahtari: str, max_dosya: int = 20) ->
     return ozetlen
 
 
-async def disk_kontrol_ve_optimize(api_anahtari: str):
+async def disk_kontrol_ve_optimize(llm_saglayici: str, api_anahtari: str, model_adi: str):
     """
     Ana optimizasyon fonksiyonu. Doluluk seviyesine göre tepki verir.
     OPT_ARALIK_SANIYE süreden önce tekrar çalışmaz.
@@ -174,12 +180,12 @@ async def disk_kontrol_ve_optimize(api_anahtari: str):
             await kisa_dosyalari_sil()
             await eski_loglari_temizle()
             await eski_sonuclari_temizle(tut_son_n=200)
-            await hafizayi_ozetle_ve_sikistir(api_anahtari, max_dosya=50)
+            await hafizayi_ozetle_ve_sikistir(llm_saglayici, api_anahtari, model_adi, max_dosya=50)
 
         elif doluluk >= 85:
             await hm.log_yaz("Yüksek disk doluluk (%85+) — hafıza özeti", "WARN")
             await kisa_dosyalari_sil()
-            await hafizayi_ozetle_ve_sikistir(api_anahtari, max_dosya=20)
+            await hafizayi_ozetle_ve_sikistir(llm_saglayici, api_anahtari, model_adi, max_dosya=20)
 
         elif doluluk >= 75:
             await hm.log_yaz("Orta disk doluluk (%75+) — kısa dosya temizliği", "INFO")

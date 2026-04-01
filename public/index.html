@@ -1,0 +1,2319 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Otonom Basyazar</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap");
+      :root {
+        --bg: #f7f8f4;
+        --panel: #fffffd;
+        --ink: #141414;
+        --accent: #0f766e;
+        --accent-2: #b45309;
+        --warn: #b91c1c;
+        --line: #dde4d2;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 10% 10%, #e9f7f2 0, #f7f8f4 45%, #eef4e7 100%);
+        overflow-x: hidden;
+      }
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        width: 340px;
+        height: 340px;
+        border-radius: 50%;
+        filter: blur(70px);
+        z-index: -1;
+        opacity: 0.22;
+        pointer-events: none;
+      }
+      body::before {
+        top: -80px;
+        left: -80px;
+        background: #34d399;
+        animation: floatBlobA 12s ease-in-out infinite;
+      }
+      body::after {
+        right: -90px;
+        bottom: -90px;
+        background: #f59e0b;
+        animation: floatBlobB 14s ease-in-out infinite;
+      }
+      .wrap {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 24px 20px 40px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        letter-spacing: 0.2px;
+        font-family: "Fraunces", serif;
+        font-size: clamp(1.6rem, 3vw, 2.3rem);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 18px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 6px 24px rgba(20, 20, 20, 0.06);
+        animation: riseIn 0.6s ease both;
+      }
+      label { display: block; margin: 8px 0 4px; font-weight: 600; }
+      input, select, textarea, button {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid #ced9c0;
+        padding: 10px;
+        font: inherit;
+      }
+      textarea { min-height: 110px; }
+      button {
+        background: linear-gradient(120deg, var(--accent), #0d9488);
+        color: white;
+        cursor: pointer;
+        border: none;
+        font-weight: 600;
+        transition: transform 0.15s ease, filter 0.2s ease;
+        position: relative;
+        overflow: hidden;
+      }
+      button:hover { transform: translateY(-1px); filter: saturate(1.08); }
+      button::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+        transform: translateX(-120%);
+        transition: transform 0.55s ease;
+      }
+      button:hover::after { transform: translateX(120%); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+      .output {
+        white-space: pre-wrap;
+        line-height: 1.5;
+        max-height: 560px;
+        overflow: auto;
+        scroll-behavior: smooth;
+        transition: opacity 0.26s ease, transform 0.26s ease, filter 0.26s ease;
+        transform-origin: top center;
+      }
+      .output.is-updating {
+        opacity: 0.38;
+        transform: translateY(6px) scale(0.996);
+        filter: blur(0.4px);
+      }
+      .output.is-ready {
+        animation: revealPulse 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .cover {
+        width: 100%;
+        max-height: 320px;
+        object-fit: cover;
+        border-radius: 14px;
+        border: 1px solid #d8dfcc;
+        margin-bottom: 8px;
+        opacity: 0;
+        transform: translateY(8px) scale(0.99);
+        transition: opacity 0.4s ease, transform 0.4s ease;
+      }
+      .cover.visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      .muted { color: #56614f; font-size: 12px; }
+      .bar { height: 8px; background: #e2e9d8; border-radius: 999px; overflow: hidden; }
+      .bar > div { height: 100%; width: 0%; background: var(--accent-2); transition: width .4s ease; }
+      .pill-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0;
+      }
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin: 10px 0 14px;
+      }
+      .mini-card {
+        border: 1px solid #d7e2cf;
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(241,247,236,0.9));
+        border-radius: 14px;
+        padding: 10px;
+        min-height: 104px;
+      }
+      .mini-card strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #3f4b38;
+      }
+      .mini-card .output {
+        max-height: 180px;
+        font-size: 13px;
+      }
+      .pill {
+        border: 1px solid #bfd5bd;
+        background: #f2faf2;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .pill:hover { background: #e6f6e8; }
+      #errorBox {
+        display: none;
+        border: 1px solid #fecaca;
+        background: #fff1f2;
+        color: var(--warn);
+        padding: 8px 10px;
+        border-radius: 10px;
+        margin-top: 8px;
+        font-size: 13px;
+      }
+      .status {
+        font-size: 12px;
+        margin-top: 6px;
+        color: #4b5563;
+      }
+      @keyframes riseIn {
+        from { transform: translateY(14px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      @keyframes floatBlobA {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(24px, 18px); }
+      }
+      @keyframes floatBlobB {
+        0%, 100% { transform: translate(0, 0); }
+        50% { transform: translate(-20px, -12px); }
+      }
+      @keyframes revealPulse {
+        from { opacity: 0.45; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation: none !important;
+          transition-duration: 0s !important;
+        }
+      }
+      @media (max-width: 1200px) {
+        .wrap { max-width: 980px; }
+        .grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 820px) {
+        .wrap { padding: 16px 12px 24px; }
+        .card { padding: 12px; border-radius: 14px; }
+        .row { grid-template-columns: 1fr 1fr; }
+        .cover { max-height: 240px; }
+        .meta-grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 560px) {
+        .row { grid-template-columns: 1fr; }
+        h1 { font-size: 1.5rem; }
+        .pill { width: auto; }
+      }
+
+      /* ════════════════════════════════════════════════════════
+         DARK MODE
+      ════════════════════════════════════════════════════════ */
+      body.dark {
+        --bg: #0b1120;
+        --panel: #111d2e;
+        --ink: #e2e8f0;
+        --accent: #10b981;
+        --accent-2: #f59e0b;
+        --warn: #f87171;
+        --line: #1e3048;
+      }
+      body.dark {
+        background: radial-gradient(circle at 10% 10%, #0d2b20 0, #0b1120 40%, #0e1a30 100%);
+      }
+      body.dark .card {
+        box-shadow: 0 6px 32px rgba(0,0,0,0.4);
+      }
+      body.dark input, body.dark select, body.dark textarea {
+        background: #0f1e30;
+        color: var(--ink);
+        border-color: #1e344f;
+      }
+      body.dark .mini-card {
+        background: linear-gradient(180deg, rgba(17,29,46,0.98), rgba(13,24,40,0.95));
+        border-color: #1e344f;
+      }
+      body.dark .pill {
+        background: #132037;
+        border-color: #1e344f;
+        color: #94a3b8;
+      }
+      body.dark .pill:hover { background: #1e344f; }
+      body.dark hr { border-color: #1e3048; }
+      body.dark #errorBox { background: #2d0e0e; border-color: #7f1d1d; }
+
+      /* ════════════════════════════════════════════════════════
+         TOP HEADER BAR
+      ════════════════════════════════════════════════════════ */
+      .header-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .header-title { flex: 1; min-width: 0; }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .btn-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: background 0.2s, transform 0.15s;
+        padding: 0;
+        color: var(--ink);
+        flex-shrink: 0;
+      }
+      .btn-icon:hover { background: var(--line); transform: scale(1.08); }
+
+      /* ════════════════════════════════════════════════════════
+         OSINT TICKER
+      ════════════════════════════════════════════════════════ */
+      .ticker-wrap {
+        background: linear-gradient(90deg, var(--accent) 0%, #0d9488 100%);
+        border-radius: 10px;
+        overflow: hidden;
+        height: 32px;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+      .ticker-label {
+        background: rgba(0,0,0,0.25);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 0 10px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        flex-shrink: 0;
+        z-index: 1;
+      }
+      .ticker-inner {
+        flex: 1;
+        overflow: hidden;
+        height: 100%;
+        position: relative;
+      }
+      .ticker-track {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        white-space: nowrap;
+        animation: tickerScroll 28s linear infinite;
+        color: #fff;
+        font-size: 12px;
+        gap: 40px;
+      }
+      .ticker-track.paused { animation-play-state: paused; }
+      .ticker-item { color: rgba(255,255,255,0.92); }
+      .ticker-item.high { color: #fde68a; font-weight: 600; }
+      .ticker-item.medium { color: #d1fae5; }
+      @keyframes tickerScroll {
+        from { transform: translateX(120%); }
+        to { transform: translateX(-100%); }
+      }
+
+      /* ════════════════════════════════════════════════════════
+         TOAST SYSTEM
+      ════════════════════════════════════════════════════════ */
+      .toast-stack {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 9000;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        pointer-events: none;
+        max-width: 340px;
+        width: calc(100% - 32px);
+      }
+      .toast {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px 14px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.18);
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        pointer-events: auto;
+        animation: toastIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        position: relative;
+        overflow: hidden;
+        font-size: 13px;
+      }
+      .toast::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; bottom: 0;
+        width: 3px;
+        border-radius: 12px 0 0 12px;
+      }
+      .toast.success::before { background: #22c55e; }
+      .toast.error::before { background: var(--warn); }
+      .toast.info::before { background: var(--accent); }
+      .toast.warn::before { background: var(--accent-2); }
+      .toast-icon { font-size: 18px; line-height: 1; }
+      .toast-body { flex: 1; min-width: 0; }
+      .toast-title { font-weight: 700; margin-bottom: 2px; color: var(--ink); }
+      .toast-msg { color: #56614f; font-size: 12px; line-height: 1.4; }
+      body.dark .toast-msg { color: #94a3b8; }
+      .toast-close { font-size: 16px; cursor: pointer; opacity: 0.5; line-height: 1; background: none; border: none; color: var(--ink); padding: 0; width: auto; }
+      .toast-close:hover { opacity: 1; }
+      @keyframes toastIn {
+        from { transform: translateX(110%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+      @keyframes toastOut {
+        from { transform: translateX(0); opacity: 1; max-height: 80px; }
+        to { transform: translateX(110%); opacity: 0; max-height: 0; margin: 0; padding: 0; }
+      }
+      .toast.hiding { animation: toastOut 0.3s ease forwards; }
+
+      /* ════════════════════════════════════════════════════════
+         COMMAND PALETTE
+      ════════════════════════════════════════════════════════ */
+      .cmd-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 8000;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 14vh;
+      }
+      .cmd-overlay.open { display: flex; }
+      .cmd-box {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        width: min(620px, 92vw);
+        box-shadow: 0 32px 80px rgba(0,0,0,0.4);
+        overflow: hidden;
+        animation: cmdIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      @keyframes cmdIn {
+        from { transform: scale(0.94) translateY(-12px); opacity: 0; }
+        to { transform: scale(1) translateY(0); opacity: 1; }
+      }
+      .cmd-search {
+        display: flex;
+        align-items: center;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+        gap: 10px;
+      }
+      .cmd-search-icon { font-size: 18px; opacity: 0.5; }
+      .cmd-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        font-size: 15px;
+        background: transparent;
+        color: var(--ink);
+        padding: 0;
+      }
+      .cmd-shortcut { font-size: 11px; color: #94a3b8; border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+      .cmd-list { max-height: 380px; overflow-y: auto; padding: 6px 0; }
+      .cmd-group-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+        padding: 8px 16px 4px;
+      }
+      .cmd-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        cursor: pointer;
+        transition: background 0.12s;
+        border-radius: 0;
+      }
+      .cmd-item:hover, .cmd-item.focused {
+        background: rgba(15, 118, 110, 0.12);
+      }
+      .cmd-item-icon { font-size: 17px; width: 22px; text-align: center; opacity: 0.8; }
+      .cmd-item-label { flex: 1; font-size: 14px; color: var(--ink); }
+      .cmd-item-hint { font-size: 11px; color: #94a3b8; }
+      .cmd-footer {
+        padding: 8px 16px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        color: #94a3b8;
+        display: flex;
+        gap: 14px;
+      }
+
+      /* ════════════════════════════════════════════════════════
+         TAB SYSTEM
+      ════════════════════════════════════════════════════════ */
+      .tab-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border-bottom: 2px solid var(--line);
+        margin-bottom: 12px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .tab-bar::-webkit-scrollbar { display: none; }
+      .tab {
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        white-space: nowrap;
+        border-radius: 8px 8px 0 0;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+        user-select: none;
+      }
+      .tab:hover { color: var(--accent); background: rgba(15, 118, 110, 0.07); }
+      .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+      .tab-add {
+        padding: 4px 10px;
+        font-size: 18px;
+        color: var(--accent);
+        cursor: pointer;
+        border-radius: 8px;
+        background: none;
+        border: none;
+        line-height: 1;
+        width: auto;
+        font-weight: 400;
+      }
+      .tab-add:hover { background: rgba(15, 118, 110, 0.1); }
+
+      /* ════════════════════════════════════════════════════════
+         EXPORT PANEL
+      ════════════════════════════════════════════════════════ */
+      .export-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin: 10px 0;
+      }
+      .btn-sm {
+        width: auto;
+        padding: 7px 14px;
+        font-size: 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .btn-secondary {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--accent);
+      }
+      .btn-secondary:hover { background: rgba(15, 118, 110, 0.1); filter: none; transform: none; }
+      .btn-secondary:hover::after { display: none; }
+      .btn-danger {
+        background: transparent;
+        color: var(--warn);
+        border: 1px solid var(--warn);
+      }
+      .btn-danger:hover { background: rgba(185, 28, 28, 0.1); filter: none; transform: none; }
+
+      /* ════════════════════════════════════════════════════════
+         ARCHIVE SEARCH & FILTER
+      ════════════════════════════════════════════════════════ */
+      .search-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .search-row input, .search-row select {
+        flex: 1;
+        min-width: 100px;
+        font-size: 13px;
+        padding: 8px 10px;
+        border-radius: 10px;
+      }
+      .search-row button {
+        width: auto;
+        padding: 8px 14px;
+        font-size: 13px;
+        border-radius: 10px;
+        flex-shrink: 0;
+      }
+      .search-result-item {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+        position: relative;
+      }
+      .search-result-item:hover { border-color: var(--accent); background: rgba(15, 118, 110, 0.04); }
+      .search-result-topic { font-weight: 700; font-size: 14px; color: var(--ink); }
+      .search-result-meta { font-size: 11px; color: #94a3b8; margin: 2px 0 4px; }
+      .search-result-snippet { font-size: 12px; color: #56614f; line-height: 1.5; }
+      body.dark .search-result-snippet { color: #94a3b8; }
+      .score-badge {
+        position: absolute;
+        top: 8px; right: 8px;
+        font-size: 10px;
+        background: #e8f5e9;
+        color: #15803d;
+        border-radius: 6px;
+        padding: 2px 6px;
+        font-weight: 700;
+      }
+      body.dark .score-badge { background: #052e16; color: #4ade80; }
+
+      /* ════════════════════════════════════════════════════════
+         AGENT GRID (visual cards)
+      ════════════════════════════════════════════════════════ */
+      .agent-grid-full {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 8px;
+        margin: 8px 0;
+      }
+      .agent-card-full {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+        cursor: default;
+        position: relative;
+      }
+      .agent-card-full:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(15,118,110,0.15); transform: translateY(-2px); }
+      .agent-card-full.selected { border-color: var(--accent); background: rgba(15, 118, 110, 0.06); }
+      .agent-card-domain {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 4px;
+        color: var(--accent);
+      }
+      .agent-card-name { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+      .agent-card-focus { font-size: 11px; color: #6b7280; line-height: 1.4; }
+      .agent-card-score {
+        position: absolute;
+        top: 7px; right: 7px;
+        font-size: 10px;
+        background: var(--line);
+        border-radius: 6px;
+        padding: 2px 5px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+
+      /* ════════════════════════════════════════════════════════
+         ANALYTICS PANEL
+      ════════════════════════════════════════════════════════ */
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .stat-card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+      }
+      .stat-num { font-size: 28px; font-weight: 700; color: var(--accent); font-family: "Fraunces", serif; line-height: 1; }
+      .stat-label { font-size: 11px; color: #6b7280; margin-top: 4px; }
+      .trend-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin: 6px 0;
+      }
+      .trend-chip {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        color: var(--ink);
+      }
+      .trend-chip .vel { font-size: 10px; color: var(--accent); font-weight: 700; }
+      .mini-bar-wrap { display: flex; align-items: flex-end; gap: 2px; height: 40px; margin: 6px 0; }
+      .mini-bar {
+        flex: 1;
+        background: var(--accent);
+        border-radius: 3px 3px 0 0;
+        opacity: 0.75;
+        min-height: 2px;
+        transition: opacity 0.2s;
+      }
+      .mini-bar:hover { opacity: 1; }
+
+      /* ════════════════════════════════════════════════════════
+         TIMELINE
+      ════════════════════════════════════════════════════════ */
+      .timeline-wrap {
+        position: relative;
+        padding-left: 22px;
+      }
+      .timeline-wrap::before {
+        content: "";
+        position: absolute;
+        left: 7px; top: 6px; bottom: 6px;
+        width: 2px;
+        background: linear-gradient(180deg, var(--accent), var(--line));
+        border-radius: 2px;
+      }
+      .timeline-item {
+        position: relative;
+        margin-bottom: 12px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+      }
+      .timeline-item:hover { border-color: var(--accent); }
+      .timeline-item::before {
+        content: "";
+        position: absolute;
+        left: -20px;
+        top: 14px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid var(--bg);
+        box-shadow: 0 0 0 2px var(--accent);
+      }
+      .timeline-item.fallback::before { background: var(--accent-2); box-shadow: 0 0 0 2px var(--accent-2); }
+      .timeline-topic { font-weight: 700; font-size: 13px; color: var(--ink); }
+      .timeline-meta { font-size: 11px; color: #94a3b8; margin: 2px 0 4px; }
+      .timeline-preview { font-size: 12px; color: #6b7280; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+      /* ════════════════════════════════════════════════════════
+         SENTIMENT / RISK GAUGE
+      ════════════════════════════════════════════════════════ */
+      .gauge-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 8px 0;
+      }
+      .gauge-card {
+        flex: 1;
+        min-width: 120px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        text-align: center;
+      }
+      .gauge-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+      .gauge-arc-wrap { position: relative; height: 52px; display: flex; align-items: center; justify-content: center; margin: 0 auto; width: 90px; }
+      .gauge-svg { width: 90px; height: 52px; overflow: visible; }
+      .gauge-val { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 700; color: var(--ink); }
+
+      /* ════════════════════════════════════════════════════════
+         FLOATING ACTION BAR
+      ════════════════════════════════════════════════════════ */
+      .fab-bar {
+        position: fixed;
+        bottom: 22px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 500;
+      }
+      .fab {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        background: var(--accent);
+        color: white;
+        transition: transform 0.2s, filter 0.2s;
+        position: relative;
+      }
+      .fab:hover { transform: scale(1.1); filter: brightness(1.1); }
+      .fab-tooltip {
+        position: absolute;
+        right: 54px;
+        background: var(--ink);
+        color: var(--bg);
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+      }
+      .fab:hover .fab-tooltip { opacity: 1; }
+
+      /* ════════════════════════════════════════════════════════
+         BATCH PANEL
+      ════════════════════════════════════════════════════════ */
+      .batch-progress-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .batch-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .batch-dot.ok { background: #22c55e; }
+      .batch-dot.fail { background: var(--warn); }
+      .batch-dot.pending { background: #94a3b8; animation: pulse 1.4s infinite; }
+
+      /* ════════════════════════════════════════════════════════
+         STATUS DOT / LIVE BADGE
+      ════════════════════════════════════════════════════════ */
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        display: inline-block;
+        animation: pulse 2s infinite;
+      }
+      .status-dot.offline { background: #94a3b8; animation: none; }
+      .live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #15803d;
+        letter-spacing: 0.06em;
+      }
+      body.dark .live-badge { color: #4ade80; }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.85); }
+      }
+
+      /* ════════════════════════════════════════════════════════
+         SKELETON LOADER
+      ════════════════════════════════════════════════════════ */
+      .skeleton-line {
+        height: 13px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, var(--line) 25%, rgba(200,210,190,0.6) 50%, var(--line) 75%);
+        background-size: 200% 100%;
+        animation: skeletonShimmer 1.4s infinite;
+        margin-bottom: 6px;
+      }
+      body.dark .skeleton-line {
+        background: linear-gradient(90deg, #1e344f 25%, #2a4564 50%, #1e344f 75%);
+        background-size: 200% 100%;
+      }
+      @keyframes skeletonShimmer {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+      }
+
+      /* ════════════════════════════════════════════════════════
+         QUICK BRIEF MODAL
+      ════════════════════════════════════════════════════════ */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 7000;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .modal-overlay.open { display: flex; }
+      .modal-box {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        width: min(640px, 95vw);
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.35);
+        animation: cmdIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--line);
+      }
+      .modal-header h2 { font-size: 16px; font-weight: 700; margin: 0; }
+      .modal-body { padding: 16px 20px; }
+      .modal-footer { padding: 12px 20px; border-top: 1px solid var(--line); display: flex; gap: 8px; justify-content: flex-end; }
+
+      /* ════════════════════════════════════════════════════════
+         BOTTOM EXTRA GRID (analytics panel)
+      ════════════════════════════════════════════════════════ */
+      .extra-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 16px;
+      }
+      @media (max-width: 820px) {
+        .extra-grid { grid-template-columns: 1fr; }
+        .stat-grid { grid-template-columns: repeat(2, 1fr); }
+        .fab-bar { bottom: 10px; right: 10px; }
+      }
+      @media (max-width: 560px) {
+        .stat-grid { grid-template-columns: repeat(2, 1fr); }
+        .agent-grid-full { grid-template-columns: repeat(2, 1fr); }
+      }
+
+      /* ════════════════════════════════════════════════════════
+         SECTION HEADER (collapsible)
+      ════════════════════════════════════════════════════════ */
+      .section-hdr {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        margin: 14px 0 8px;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--ink);
+      }
+      .section-hdr .chevron { transition: transform 0.2s; }
+      .section-hdr.collapsed .chevron { transform: rotate(-90deg); }
+      .collapsible-body { transition: max-height 0.3s ease, opacity 0.3s ease; overflow: hidden; max-height: 2000px; opacity: 1; }
+      .collapsible-body.hidden { max-height: 0; opacity: 0; }
+
+      /* ════════════════════════════════════════════════════════
+         DISTRIBUTION LOG TABLE
+      ════════════════════════════════════════════════════════ */
+      .dist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .dist-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--line); color: #6b7280; font-weight: 700; }
+      .dist-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      .dist-table tr:last-child td { border-bottom: none; }
+      .channel-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        padding: 2px 7px;
+        border-radius: 6px;
+        text-transform: uppercase;
+      }
+      .channel-badge.x { background: #0f172a; color: #f1f5f9; }
+      .channel-badge.telegram { background: #0088cc; color: white; }
+      .channel-badge.all { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
+    </style>
+  </head>
+  <body>
+    <!-- OSINT Alert Ticker -->
+    <div class="ticker-wrap" id="tickerWrap">
+      <span class="ticker-label">⚡ OSINT</span>
+      <div class="ticker-inner">
+        <div class="ticker-track" id="tickerTrack">
+          <span class="ticker-item">Sistem hazir — OSINT verisi bekleniyor</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <!-- Header Bar -->
+      <div class="header-bar">
+        <div class="header-title">
+          <h1>NEXUS-120 / Otonom Basyazar</h1>
+          <p class="muted">
+            <span class="live-badge"><span class="status-dot" id="connDot"></span> CANLI</span>
+            &nbsp;DAL 1-15 · 24 Ajan · Ontoloji + Orkestrasyon
+          </p>
+        </div>
+        <div class="header-actions">
+          <button class="btn-icon" id="btnQuickBrief" title="Hizli Brief (Q)">⚡</button>
+          <button class="btn-icon" id="btnAnalytics" title="Analitik Pano (A)">📊</button>
+          <button class="btn-icon" id="btnBatchOpen" title="Toplu Uretim (B)">🗂</button>
+          <button class="btn-icon" id="btnCmdPalette" title="Komut Paleti (Ctrl+K)">⌘</button>
+          <button class="btn-icon" id="btnTheme" title="Karanlik/Acik Mod">🌙</button>
+        </div>
+      </div>
+      <div class="grid">
+        <section class="card">
+          <label for="topic">Konu</label>
+          <input id="topic" value="Turkiye'de yapay zeka ekonomisi" />
+
+          <label for="persona">Persona</label>
+          <select id="persona">
+            <option value="analist">Analist</option>
+            <option value="siber">Siber</option>
+            <option value="finans">Finans</option>
+            <option value="derin">Derin</option>
+          </select>
+
+          <label for="quality">Cikti Kalitesi</label>
+          <select id="quality">
+            <option value="hizli">Hizli</option>
+            <option value="dengeli" selected>Dengeli</option>
+            <option value="derin">Derin</option>
+          </select>
+
+          <div class="row">
+            <button id="btnGenerate">Makale Uret</button>
+            <button id="btnPodcast">Podcast Uret</button>
+            <button id="btnCover">Kapak Ciz</button>
+          </div>
+
+          <div class="row">
+            <button id="btnVideo">Video Uret</button>
+            <button id="btnArchive">Arsiv Yukle</button>
+            <button id="btnFuture">Future Report</button>
+          </div>
+
+          <div class="row">
+            <button id="btnChart">Grafik Cikar</button>
+            <button id="btnX">X Dagitimi</button>
+            <button id="btnTg">Telegram Dagitimi</button>
+          </div>
+
+          <div class="row">
+            <button id="btnAll">Tum Aglara Dagit</button>
+            <button id="btnOsint">OSINT Tara</button>
+            <button id="btnComments">Yorum Botlari</button>
+          </div>
+
+          <label>Yuklenme Durumu</label>
+          <div class="bar"><div id="progress"></div></div>
+          <p id="logs" class="muted">Hazir.</p>
+          <div id="errorBox"></div>
+
+          <audio id="player" controls style="width: 100%; margin-top: 10px;"></audio>
+          <div id="audioStatus" class="status"></div>
+          <canvas id="chart" style="margin-top: 12px;"></canvas>
+          <button id="btnChartPng" style="margin-top: 8px;">Grafik PNG Indir</button>
+        </section>
+
+        <section class="card">
+          <img id="cover" class="cover" alt="Kapak" style="display:none;" />
+          <div id="coverNote" class="muted"></div>
+          <div id="keywordPills" class="pill-wrap"></div>
+          <div class="meta-grid">
+            <div class="mini-card">
+              <strong>Ontoloji</strong>
+              <div id="ontologyPanel" class="output">Baskin alanlar burada gorunecek.</div>
+            </div>
+            <div class="mini-card">
+              <strong>Ajanlar</strong>
+              <div id="agentPanel" class="output">Secilen ajanlar burada gorunecek.</div>
+            </div>
+            <div class="mini-card">
+              <strong>Konsensus</strong>
+              <div id="consensusPanel" class="output">Ajan uzlasisi burada gorunecek.</div>
+            </div>
+          </div>
+
+          <!-- Content Tabs -->
+          <div class="tab-bar" id="contentTabs">
+            <div class="tab active" data-tab="article">📄 Makale</div>
+            <div class="tab" data-tab="comments">💬 Yorumlar</div>
+            <div class="tab" data-tab="search">🔍 Arama</div>
+            <div class="tab" data-tab="timeline">🕐 Zaman Serisi</div>
+            <div class="tab" data-tab="distlog">📡 Dagitim</div>
+          </div>
+
+          <!-- Tab: Makale -->
+          <div class="tab-panel active" id="tabArticle">
+            <!-- Export row -->
+            <div class="export-row" id="exportRow" style="display:none;">
+              <button class="btn-sm btn-secondary" id="btnCopyArticle">📋 Kopyala</button>
+              <button class="btn-sm btn-secondary" id="btnExportMd">⬇ .md</button>
+              <button class="btn-sm btn-secondary" id="btnExportJson">⬇ .json</button>
+              <button class="btn-sm btn-secondary" id="btnExportTxt">⬇ .txt</button>
+              <button class="btn-sm btn-secondary" id="btnCompare">⚖ Karsilastir</button>
+            </div>
+            <div id="article" class="output">Makale burada gorunecek.</div>
+          </div>
+
+          <!-- Tab: Yorumlar -->
+          <div class="tab-panel" id="tabComments">
+            <div id="comments" class="output"></div>
+          </div>
+
+          <!-- Tab: Arama -->
+          <div class="tab-panel" id="tabSearch">
+            <div class="search-row">
+              <input id="searchQ" placeholder="Arsivde ara..." />
+              <select id="searchPersona">
+                <option value="">Tum Personalar</option>
+                <option value="analist">Analist</option>
+                <option value="siber">Siber</option>
+                <option value="finans">Finans</option>
+                <option value="derin">Derin</option>
+              </select>
+              <select id="searchQuality">
+                <option value="">Tum Kaliteler</option>
+                <option value="hizli">Hizli</option>
+                <option value="dengeli">Dengeli</option>
+                <option value="derin">Derin</option>
+              </select>
+              <button class="btn-sm" id="btnSearch">Ara</button>
+            </div>
+            <div id="searchSuggest" class="pill-wrap" style="margin-bottom:6px;"></div>
+            <div id="searchResults"></div>
+          </div>
+
+          <!-- Tab: Zaman Serisi -->
+          <div class="tab-panel" id="tabTimeline">
+            <div class="timeline-wrap" id="timelineWrap">
+              <p class="muted">Arsiv yuklenince ozaman serisi gorunulebilir.</p>
+            </div>
+          </div>
+
+          <!-- Tab: Dagitim -->
+          <div class="tab-panel" id="tabDistLog">
+            <div id="distLogWrap">
+              <p class="muted">Dagitim kayitlari yukleniyor...</p>
+            </div>
+          </div>
+
+          <hr />
+          <div id="archiveStatus" class="muted">Arsiv paneli hazir.</div>
+          <div id="archivePanel" class="output"></div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      let currentArticle = "";
+      let currentCoverPrompt = "";
+      let currentKeywords = [];
+      let currentAudioUrl = "";
+      let currentBundle = null;
+      let chartInstance;
+
+      const el = (id) => document.getElementById(id);
+      const log = (txt) => (el("logs").textContent = txt);
+      const setProgress = (v) => (el("progress").style.width = `${v}%`);
+      const setError = (txt) => {
+        const box = el("errorBox");
+        if (!txt) {
+          box.style.display = "none";
+          box.textContent = "";
+          return;
+        }
+        box.style.display = "block";
+        box.textContent = txt;
+      };
+
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      async function animateOutputUpdate(node, text) {
+        if (!node) return;
+        node.classList.remove("is-ready");
+        node.classList.add("is-updating");
+        await sleep(120);
+        node.textContent = text;
+        node.classList.remove("is-updating");
+        node.classList.add("is-ready");
+        node.scrollTop = 0;
+        setTimeout(() => node.classList.remove("is-ready"), 460);
+      }
+
+      function extractEntities(text, limit = 10) {
+        const stop = new Set(["ve", "ile", "gibi", "icin", "olan", "bir", "bu", "daha", "cok", "az", "sonra", "kadar", "uzerinde", "hakkinda"]);
+        const words = String(text || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9ğüşiöçı\s-]/gi, " ")
+          .split(/\s+/)
+          .filter((w) => w.length > 3 && !stop.has(w));
+
+        const freq = new Map();
+        words.forEach((w) => freq.set(w, (freq.get(w) || 0) + 1));
+        return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([w]) => w);
+      }
+
+      function renderKeywordPills(keywords) {
+        const root = el("keywordPills");
+        root.innerHTML = "";
+        keywords.forEach((k) => {
+          const b = document.createElement("button");
+          b.className = "pill";
+          b.textContent = `#${k}`;
+          b.onclick = async () => {
+            try {
+              setError("");
+              log(`Derin aciklama uretiliyor: ${k}`);
+              const out = await api("/api/deep-expand", "POST", { keyword: k, context: currentArticle.slice(0, 1000) });
+              el("article").textContent += `\n\n### Derin Baglam: ${k}\n${out.expanded}`;
+              log(`${k} icin derin aciklama eklendi.`);
+            } catch (err) {
+              setError(`Deep-link hatasi: ${err.message}`);
+            }
+          };
+          root.appendChild(b);
+        });
+      }
+
+      async function renderIntelligence(bundle, futureText) {
+        currentBundle = bundle;
+        const ontologyText = (bundle.ontology?.dominantDomains || [])
+          .slice(0, 6)
+          .map((item, index) => `${index + 1}. ${item.domain} | skor ${item.score}`)
+          .join("\n") || "Ontoloji sinyali zayif.";
+
+        const agentText = (bundle.agentPlan?.selectedAgents || [])
+          .slice(0, 6)
+          .map((agent, index) => `${index + 1}. ${agent.name} | ${agent.domain} | puan ${agent.score}`)
+          .join("\n") || "Ajan secimi hazir degil.";
+
+        const consensusText = bundle.consensus || futureText || "Konsensus uretilemedi.";
+
+        await Promise.all([
+          animateOutputUpdate(el("ontologyPanel"), ontologyText),
+          animateOutputUpdate(el("agentPanel"), agentText),
+          animateOutputUpdate(el("consensusPanel"), consensusText)
+        ]);
+      }
+
+      async function api(path, method = "GET", body) {
+        const res = await fetch(path, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: body ? JSON.stringify(body) : undefined
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(`${data.error || "API hatasi"} (status ${res.status})`);
+        return data;
+      }
+
+      el("btnGenerate").onclick = async () => {
+        try {
+          setError("");
+          setProgress(15);
+          log("Makale uretiliyor...");
+          const data = await api("/api/generate-bundle", "POST", {
+            topic: el("topic").value,
+            persona: el("persona").value,
+            quality: el("quality").value
+          });
+
+          currentArticle = data.article.article;
+          currentCoverPrompt = data.article.coverPrompt;
+          currentKeywords = data.article.keywords?.length ? data.article.keywords : extractEntities(currentArticle, 10);
+          renderKeywordPills(currentKeywords);
+          await renderIntelligence(data.article, data.future);
+
+          await animateOutputUpdate(el("article"), `${currentArticle}\n\n## Gelecek Raporu\n${data.future}`);
+
+          if (chartInstance) chartInstance.destroy();
+          chartInstance = new Chart(el("chart"), {
+            type: data.chart.chartType,
+            data: {
+              labels: data.chart.labels,
+              datasets: [{
+                label: "Sayisal Ozet",
+                data: data.chart.datasets,
+                backgroundColor: data.chart.palette,
+                borderColor: data.chart.palette[0],
+                borderWidth: 1
+              }]
+            },
+            options: { responsive: true }
+          });
+
+          await animateOutputUpdate(el("comments"), [
+            ...data.comments.comments.map((c) => `${c.name}: ${c.text}`),
+            "",
+            ...data.comments.replyPairs?.map((r) => `${r.from} -> ${r.to}`) || []
+          ].join("\n\n"));
+
+          setProgress(60);
+          if (data.article.generationMode === "fallback") {
+            log(`Makale fallback modda olustu: ${data.article.generationWarning || "Model baglantisi yok"}`);
+          } else {
+            log("Makale, yorum ve gelecek raporu hazirlandi.");
+          }
+        } catch (err) {
+          setError(`Uretim hatasi: ${err.message}`);
+          log("Uretim basarisiz.");
+        } finally {
+          setProgress(100);
+          setTimeout(() => setProgress(0), 1000);
+        }
+      };
+
+      el("btnCover").onclick = async () => {
+        try {
+          setError("");
+          setProgress(25);
+          log("Kapak olusturuluyor...");
+          const data = await api("/api/generate-cover", "POST", {
+            prompt: currentCoverPrompt || `Magazine cover about ${el("topic").value}`,
+            persona: el("persona").value
+          });
+          const cover = el("cover");
+          cover.classList.remove("visible");
+          cover.src = data.imageUrl;
+          cover.style.display = "block";
+          requestAnimationFrame(() => cover.classList.add("visible"));
+          el("coverNote").textContent = data.note || "";
+          log(`Kapak hazir (${data.source}).`);
+        } catch (err) {
+          setError(`Kapak hatasi: ${err.message}`);
+          log("Kapak olusturma basarisiz.");
+        } finally {
+          setProgress(100);
+          setTimeout(() => setProgress(0), 1000);
+        }
+      };
+
+      el("btnPodcast").onclick = async () => {
+        try {
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          setError("");
+          setProgress(30);
+          log("Podcast uretiliyor...");
+          el("audioStatus").textContent = "Ses yukleniyor...";
+          el("player").disabled = true;
+          const data = await api("/api/podcast", "POST", { text: currentArticle });
+          el("player").src = data.audioUrl;
+          currentAudioUrl = data.audioUrl;
+          el("player").load();
+          el("audioStatus").textContent = "Ses hazir.";
+          el("player").disabled = false;
+          log("Podcast hazir.");
+        } catch (err) {
+          setError(`Podcast hatasi: ${err.message}`);
+          el("audioStatus").textContent = "Ses olusturulamadi.";
+          el("player").disabled = false;
+          log("Podcast olusturma basarisiz.");
+        } finally {
+          setProgress(100);
+          setTimeout(() => setProgress(0), 1000);
+        }
+      };
+
+      el("btnVideo").onclick = async () => {
+        try {
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          if (!currentAudioUrl) throw new Error("Once podcast uretin.");
+          setError("");
+          setProgress(35);
+          log("Video olusturuluyor, lutfen bekleyin...");
+          el("btnVideo").disabled = true;
+          const out = await api("/api/generate-video", "POST", {
+            imagePath: el("cover").src || "",
+            audioPath: `${location.origin}${currentAudioUrl}`,
+            title: el("topic").value
+          });
+          log(`Video hazir: ${out.videoUrl}`);
+        } catch (err) {
+          setError(`Video hatasi: ${err.message}`);
+          log("Video olusturma basarisiz.");
+        } finally {
+          el("btnVideo").disabled = false;
+          setProgress(100);
+          setTimeout(() => setProgress(0), 1000);
+        }
+      };
+
+      async function loadArchivePanel() {
+        el("archiveStatus").textContent = "Yukleniyor...";
+        try {
+          const items = await api("/api/archive");
+          const view = [...items].reverse().slice(0, 20).map((a) => {
+            return `${new Date(a.createdAt).toLocaleString("tr-TR")} | ${a.topic} | ${a.persona} | ${a.generationMode || "-"}`;
+          }).join("\n");
+          await animateOutputUpdate(el("archivePanel"), view || "Arsiv bos.");
+          el("archiveStatus").textContent = `Arsiv yüklendi. Kayit: ${items.length}`;
+        } catch (err) {
+          el("archiveStatus").textContent = "Arsiv yuklenemedi.";
+          setError(`Arsiv hatasi: ${err.message}`);
+        }
+      }
+
+      el("btnArchive").onclick = async () => {
+        await loadArchivePanel();
+      };
+
+      el("btnFuture").onclick = async () => {
+        try {
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          setError("");
+          const out = await api("/api/generate-future", "POST", {
+            topic: el("topic").value,
+            horizon: "1 yil",
+            articleText: currentArticle,
+            newsContext: currentArticle
+          });
+          await animateOutputUpdate(el("article"), `${el("article").textContent}\n\n## Future Report (manuel)\n${out.forecast}`);
+          log("Future report eklendi.");
+        } catch (err) {
+          setError(`Future report hatasi: ${err.message}`);
+        }
+      };
+
+      el("btnChart").onclick = async () => {
+        try {
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          setError("");
+          setProgress(20);
+          const data = await api("/api/chart-data", "POST", {
+            article: currentArticle,
+            persona: el("persona").value
+          });
+          if (chartInstance) chartInstance.destroy();
+          chartInstance = new Chart(el("chart"), {
+            type: data.chartType,
+            data: {
+              labels: data.labels,
+              datasets: [{
+                label: "Sayisal Ozet",
+                data: data.datasets,
+                backgroundColor: data.palette,
+                borderColor: data.palette[0],
+                borderWidth: 1
+              }]
+            },
+            options: { responsive: true }
+          });
+          log("DAL 8 grafik olusturuldu.");
+        } catch (err) {
+          setError(`Grafik hatasi: ${err.message}`);
+          log("Grafik olusturma basarisiz.");
+        } finally {
+          setProgress(100);
+          setTimeout(() => setProgress(0), 1000);
+        }
+      };
+
+      el("btnX").onclick = async () => {
+        try {
+          setError("");
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          await api("/api/distribute/x", "POST", { article: currentArticle });
+          log("DAL 9 / X dagitimi tetiklendi (simulasyon). ");
+        } catch (err) {
+          setError(`X dagitim hatasi: ${err.message}`);
+        }
+      };
+
+      el("btnTg").onclick = async () => {
+        try {
+          setError("");
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          await api("/api/distribute/telegram", "POST", { article: currentArticle });
+          log("DAL 9 / Telegram dagitimi tetiklendi.");
+        } catch (err) {
+          setError(`Telegram dagitim hatasi: ${err.message}`);
+        }
+      };
+
+      el("btnAll").onclick = async () => {
+        try {
+          setError("");
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          const out = await api("/api/distribute/all", "POST", { article: currentArticle });
+          log(`Tum aglara dagitildi. X parcasi: ${out.xChunks}`);
+        } catch (err) {
+          setError(`Toplu dagitim hatasi: ${err.message}`);
+        }
+      };
+
+      el("btnOsint").onclick = async () => {
+        try {
+          setError("");
+          const out = await api("/api/osint-scan", "POST", {});
+          log(`OSINT tarama tamamlandi. Son alarm: ${out.alerts.length}`);
+        } catch (err) {
+          setError(`OSINT hatasi: ${err.message}`);
+        }
+      };
+
+      el("btnComments").onclick = async () => {
+        try {
+          setError("");
+          if (!currentArticle) throw new Error("Once makale uretin.");
+          const out = await api("/api/generate-comments", "POST", { article: currentArticle });
+          await animateOutputUpdate(el("comments"), [
+            ...out.comments.map(c => `${c.name}: ${c.text}`),
+            "",
+            ...(out.replies || []).map(r => `${r.from} -> ${r.to}: ${r.text}`)
+          ].join("\n\n"));
+          log("DAL 15 yorumlar ve reply agi uretildi.");
+        } catch (err) {
+          setError(`Yorum botu hatasi: ${err.message}`);
+        }
+      };
+
+      el("btnChartPng").onclick = () => {
+        if (!chartInstance) {
+          log("Once grafik olusturun.");
+          return;
+        }
+        const a = document.createElement("a");
+        a.href = chartInstance.toBase64Image("image/png", 1);
+        a.download = `grafik_${Date.now()}.png`;
+        a.click();
+        log("Grafik PNG indirildi.");
+      };
+
+      el("player").addEventListener("waiting", () => {
+        el("audioStatus").textContent = "Ses yukleniyor...";
+      });
+      el("player").addEventListener("canplay", () => {
+        el("audioStatus").textContent = "Oynatmaya hazir.";
+      });
+
+      loadArchivePanel();
+    </script>
+
+    <!-- ===== MODAL: COMMAND PALETTE ===== -->
+    <div class="cmd-overlay" id="cmdOverlay">
+      <div class="cmd-box" role="dialog" aria-modal="true" aria-label="Komut Paleti">
+        <input class="cmd-input" id="cmdInput" placeholder="Komut veya konu ara... (Esc kapatir)" autocomplete="off" />
+        <ul class="cmd-list" id="cmdList"></ul>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: QUICK BRIEF ===== -->
+    <div class="modal-overlay" id="quickBriefModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>⚡ Hizli Brief</span>
+          <button class="btn-icon" id="closeQuickBrief">✕</button>
+        </div>
+        <div class="modal-body" id="quickBriefBody">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line" style="width:70%;"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-sm btn-secondary" id="btnCopyBrief">📋 Kopyala</button>
+          <button class="btn-sm" id="btnBriefGenerateFull">Tam Makale Uret →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: ANALYTICS PANEL ===== -->
+    <div class="modal-overlay" id="analyticsModal">
+      <div class="modal-box" style="max-width:860px;">
+        <div class="modal-header">
+          <span>📊 Analitik Pano</span>
+          <button class="btn-icon" id="closeAnalytics">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="stat-grid" id="statGrid">
+            <div class="stat-card skeleton-line"></div>
+            <div class="stat-card skeleton-line"></div>
+            <div class="stat-card skeleton-line"></div>
+            <div class="stat-card skeleton-line"></div>
+          </div>
+          <h4 class="section-hdr">Uretim Trendi</h4>
+          <div id="trendChips" class="pill-wrap"></div>
+          <div class="mini-bar-wrap" id="miniBarWrap"></div>
+          <h4 class="section-hdr">Persona Dagilimi</h4>
+          <div class="gauge-row" id="gaugeRow"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-sm btn-secondary" id="btnReloadAnalytics">🔄 Yenile</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: BATCH PANEL ===== -->
+    <div class="modal-overlay" id="batchModal">
+      <div class="modal-box" style="max-width:680px;">
+        <div class="modal-header">
+          <span>🗂 Toplu Uretim</span>
+          <button class="btn-icon" id="closeBatch">✕</button>
+        </div>
+        <div class="modal-body">
+          <label>Konular (her satira bir konu)</label>
+          <textarea id="batchTopics" rows="6" style="width:100%;resize:vertical;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;" placeholder="Konu 1&#10;Konu 2&#10;Konu 3"></textarea>
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <select id="batchPersona">
+              <option value="analist">Analist</option>
+              <option value="siber">Siber</option>
+              <option value="finans">Finans</option>
+              <option value="derin">Derin</option>
+            </select>
+            <select id="batchQuality">
+              <option value="hizli">Hizli</option>
+              <option value="dengeli" selected>Dengeli</option>
+              <option value="derin">Derin</option>
+            </select>
+          </div>
+          <div id="batchProgressList" style="margin-top:14px;"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-sm" id="btnStartBatch">▶ Baslat</button>
+          <button class="btn-sm btn-secondary" id="btnBatchCancel">İptal</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: COMPARE ===== -->
+    <div class="modal-overlay" id="compareModal">
+      <div class="modal-box" style="max-width:900px;">
+        <div class="modal-header">
+          <span>⚖ Makale Karsilastirma</span>
+          <button class="btn-icon" id="closeCompare">✕</button>
+        </div>
+        <div class="modal-body" id="compareBody" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div><h4>Makale A</h4><div id="compareA" class="output" style="min-height:120px;"></div></div>
+          <div><h4>Makale B</h4><div id="compareB" class="output" style="min-height:120px;"></div></div>
+          <div style="grid-column:1/-1;"><h4>Analiz</h4><div id="compareResult" class="output"></div></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-sm btn-secondary" id="btnRunCompare">Karsilastir</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TOAST STACK ===== -->
+    <div class="toast-stack" id="toastStack"></div>
+
+    <!-- ===== FLOATING ACTION BAR ===== -->
+    <div class="fab-bar" id="fabBar">
+      <button class="fab" id="fabScrollTop" title="Basa Don">↑</button>
+      <button class="fab" id="fabSearch" title="Arsiv Arama">🔍</button>
+      <button class="fab" id="fabTimeline" title="Zaman Serisi">🕐</button>
+      <button class="fab" id="fabQuickGen" title="Hizli Uret">⚡</button>
+    </div>
+
+    <!-- ===== ADVANCED JAVASCRIPT ===== -->
+    <script>
+    /* ================================================================
+       ADVANCED UI ENGINE — Dark Mode · SSE · Toast · Cmd Palette
+       Tabs · Export · Search · Analytics · Timeline · Batch · FAB
+       ================================================================ */
+
+    // ── Utilities ────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const elQ = sel => document.querySelector(sel);
+    const elAll = sel => [...document.querySelectorAll(sel)];
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    function showToast(type = "info", title = "", msg = "", dur = 4000) {
+      const icons = { info: "ℹ️", success: "✅", warn: "⚠️", error: "❌" };
+      const t = document.createElement("div");
+      t.className = `toast toast-${type}`;
+      t.innerHTML = `<span class="toast-icon">${icons[type]||"ℹ️"}</span>
+        <div><strong>${title}</strong>${msg ? `<div class="toast-msg">${msg}</div>` : ""}</div>
+        <button class="toast-close" onclick="this.closest('.toast').remove()">✕</button>`;
+      $("toastStack").prepend(t);
+      if (dur > 0) setTimeout(() => t.remove(), dur);
+      return t;
+    }
+
+    function numFmt(n) { return Number(n).toLocaleString("tr-TR"); }
+
+    // ── Theme ─────────────────────────────────────────────────────────
+    (function initTheme() {
+      const saved = localStorage.getItem("theme") || "light";
+      if (saved === "dark") {
+        document.body.classList.add("dark");
+        const b = $("btnTheme");
+        if (b) b.textContent = "☀️";
+      }
+    })();
+
+    $("btnTheme").addEventListener("click", () => {
+      const isDark = document.body.classList.toggle("dark");
+      $("btnTheme").textContent = isDark ? "☀️" : "🌙";
+      localStorage.setItem("theme", isDark ? "dark" : "light");
+      showToast("info", isDark ? "Karanlik Mod" : "Acik Mod", "", 1800);
+    });
+
+    // ── SSE — Real-Time OSINT Stream ──────────────────────────────────
+    let sseRetry = 0;
+    function initSSE() {
+      try {
+        const es = new EventSource("/api/sse");
+
+        es.addEventListener("heartbeat", e => {
+          const dot = $("connDot");
+          if (dot) { dot.style.background = "#22c55e"; dot.title = "Sunucu bagli"; }
+          sseRetry = 0;
+        });
+
+        es.addEventListener("osint-alerts", e => {
+          try {
+            const alerts = JSON.parse(e.data);
+            if (!Array.isArray(alerts) || !alerts.length) return;
+            pushTickerAlerts(alerts);
+            showToast("warn", "Yeni OSINT Alarmı", `${alerts.length} uyari alindi.`, 5000);
+          } catch(_) {}
+        });
+
+        es.addEventListener("batch-progress", e => {
+          try {
+            const d = JSON.parse(e.data);
+            updateBatchProgress(d.jobId, d.topic, d.status, d.idx, d.total);
+          } catch(_) {}
+        });
+
+        es.onerror = () => {
+          const dot = $("connDot");
+          if (dot) { dot.style.background = "#ef4444"; dot.title = "Baglanti kesildi"; }
+          es.close();
+          sseRetry++;
+          const delay = Math.min(30000, 2000 * Math.pow(2, sseRetry));
+          setTimeout(initSSE, delay);
+        };
+      } catch(_) {}
+    }
+    initSSE();
+
+    // ── OSINT Ticker ──────────────────────────────────────────────────
+    function pushTickerAlerts(alerts) {
+      const track = $("tickerTrack");
+      if (!track) return;
+      const existing = track.innerHTML.replace("Canli OSINT akisi baslatildi...", "").trim();
+      const newItems = alerts.map(a =>
+        `<span class="ticker-item level-${a.level||"low"}">▸ ${a.title||a.message||a.text||JSON.stringify(a)}</span>`
+      ).join("");
+      track.innerHTML = newItems + (existing ? "  " + existing : "");
+    }
+
+    // ── Tab System ────────────────────────────────────────────────────
+    elAll("#contentTabs .tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        elAll("#contentTabs .tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        const target = tab.dataset.tab;
+        elAll(".tab-panel").forEach(p => p.classList.remove("active"));
+        const panel = document.getElementById("tab" + target.charAt(0).toUpperCase() + target.slice(1));
+        if (panel) panel.classList.add("active");
+        // Lazy load
+        if (target === "search") $("searchQ").focus();
+        if (target === "timeline") buildTimeline();
+        if (target === "distlog") loadDistLog();
+      });
+    });
+
+    // ── Command Palette ─────────────────────────────────────────────
+    const COMMANDS = [
+      { label: "⚡ Hizli Brief", action: () => openQuickBrief() },
+      { label: "📊 Analitik Pano", action: () => openAnalytics() },
+      { label: "🗂 Toplu Uretim", action: () => openBatch() },
+      { label: "🔍 Arsiv Aramasi", action: () => switchTab("search") },
+      { label: "🕐 Zaman Serisi", action: () => switchTab("timeline") },
+      { label: "📡 Dagitim Kaydi", action: () => switchTab("distlog") },
+      { label: "🌙 Tema Degistir", action: () => $("btnTheme").click() },
+      { label: "📋 Makaleyi Kopyala", action: () => copyArticle() },
+      { label: "⬇  .md Olarak Indir", action: () => exportArticle("markdown") },
+      { label: "⬇  .json Olarak Indir", action: () => exportArticle("json") },
+      { label: "↑ Basa Don", action: () => window.scrollTo({top:0,behavior:"smooth"}) },
+    ];
+
+    function openCmdPalette() {
+      const overlay = $("cmdOverlay");
+      overlay.classList.add("open");
+      $("cmdInput").value = "";
+      renderCmdList(COMMANDS);
+      $("cmdInput").focus();
+    }
+    function closeCmdPalette() { $("cmdOverlay").classList.remove("open"); }
+
+    function renderCmdList(cmds) {
+      const ul = $("cmdList");
+      ul.innerHTML = "";
+      cmds.forEach((c, i) => {
+        const li = document.createElement("li");
+        li.className = "cmd-item" + (i === 0 ? " cmd-selected" : "");
+        li.textContent = c.label;
+        li.addEventListener("mousedown", e => { e.preventDefault(); closeCmdPalette(); c.action(); });
+        ul.appendChild(li);
+      });
+    }
+
+    $("cmdInput").addEventListener("input", () => {
+      const q = $("cmdInput").value.toLowerCase();
+      const filtered = q ? COMMANDS.filter(c => c.label.toLowerCase().includes(q)) : COMMANDS;
+      renderCmdList(filtered);
+    });
+
+    $("cmdInput").addEventListener("keydown", e => {
+      const items = elAll(".cmd-item");
+      const sel = elQ(".cmd-selected");
+      const idx = items.indexOf(sel);
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (sel) sel.classList.remove("cmd-selected");
+        const next = items[(idx + 1) % items.length];
+        if (next) next.classList.add("cmd-selected");
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (sel) sel.classList.remove("cmd-selected");
+        const prev = items[(idx - 1 + items.length) % items.length];
+        if (prev) prev.classList.add("cmd-selected");
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const active = elQ(".cmd-selected");
+        if (active) active.dispatchEvent(new MouseEvent("mousedown"));
+      } else if (e.key === "Escape") {
+        closeCmdPalette();
+      }
+    });
+
+    $("cmdOverlay").addEventListener("click", e => {
+      if (e.target === $("cmdOverlay")) closeCmdPalette();
+    });
+    $("btnCmdPalette").addEventListener("click", openCmdPalette);
+
+    document.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") { e.preventDefault(); openCmdPalette(); }
+      if (e.key === "Escape") {
+        closeCmdPalette();
+        elAll(".modal-overlay.open").forEach(m => m.classList.remove("open"));
+      }
+      if (e.key === "q" || e.key === "Q") {
+        if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") openQuickBrief();
+      }
+      if (e.key === "a" || e.key === "A") {
+        if (document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") openAnalytics();
+      }
+    });
+
+    // ── Helper: switch tab ────────────────────────────────────────────
+    function switchTab(name) {
+      const tab = elQ(`[data-tab="${name}"]`);
+      if (tab) tab.click();
+      const panel = document.getElementById("tab" + name.charAt(0).toUpperCase() + name.slice(1));
+      if (panel) panel.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // ── Quick Brief Modal ─────────────────────────────────────────────
+    async function openQuickBrief() {
+      const modal = $("quickBriefModal");
+      modal.classList.add("open");
+      const body = $("quickBriefBody");
+      const topic = ($("topic") || {}).value || "Genel Ozet";
+      const persona = ($("persona") || {}).value || "analist";
+      body.innerHTML = `<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:65%;"></div>`;
+      try {
+        const res = await fetch("/api/quick-brief", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic, persona })
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const brief = data.brief || data.text || data;
+        body.innerHTML = `<p style="line-height:1.7;white-space:pre-wrap;">${typeof brief === "string" ? brief : JSON.stringify(brief, null, 2)}</p>`;
+      } catch (err) {
+        body.innerHTML = `<p class="muted">Brief uretilirken hata: ${err.message}</p>`;
+        showToast("error", "Brief Hatasi", err.message);
+      }
+    }
+
+    $("closeQuickBrief").addEventListener("click", () => $("quickBriefModal").classList.remove("open"));
+    $("btnQuickBrief").addEventListener("click", openQuickBrief);
+
+    $("btnCopyBrief").addEventListener("click", () => {
+      const t = $("quickBriefBody").innerText;
+      navigator.clipboard.writeText(t).then(() => showToast("success", "Kopyalandi", "", 1500));
+    });
+    $("btnBriefGenerateFull").addEventListener("click", () => {
+      $("quickBriefModal").classList.remove("open");
+      const btn = document.getElementById("btnGenerate");
+      if (btn) btn.click();
+    });
+
+    // ── Analytics Modal ───────────────────────────────────────────────
+    async function openAnalytics() {
+      const modal = $("analyticsModal");
+      modal.classList.add("open");
+      await loadAnalytics();
+    }
+    $("closeAnalytics").addEventListener("click", () => $("analyticsModal").classList.remove("open"));
+    $("btnAnalytics").addEventListener("click", openAnalytics);
+    $("btnReloadAnalytics").addEventListener("click", loadAnalytics);
+
+    async function loadAnalytics() {
+      const grid = $("statGrid");
+      grid.innerHTML = `<div class="stat-card skeleton-line"></div>`.repeat(4);
+      $("trendChips").innerHTML = "";
+      $("miniBarWrap").innerHTML = "";
+      $("gaugeRow").innerHTML = "";
+      try {
+        const res = await fetch("/api/analytics");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const payload = await res.json();
+        // payload = { stats, trends, matrix, production }
+        const stats = payload.stats || {};
+        const totals = stats.totals || {};
+        const trendKeywords = (payload.trends || []).slice(0, 12);
+
+        // ── Stat cards ──────────────────────────────────────────
+        // Compute thisWeek from stats.daily
+        const today = new Date();
+        const weekAgo = new Date(today - 7 * 86400000);
+        let thisWeek = 0;
+        for (const { date, count } of (stats.daily || [])) {
+          if (new Date(date) >= weekAgo) thisWeek += count;
+        }
+
+        const statData = [
+          { label: "Toplam Makale", value: numFmt(totals.articles || 0), icon: "📝" },
+          { label: "Persona Sayisi", value: numFmt((stats.byPersona || []).length), icon: "🎭" },
+          { label: "Bu Hafta", value: numFmt(thisWeek), icon: "📅" },
+          { label: "AI Uretim", value: numFmt(totals.aiArticles || 0), icon: "🤖" },
+        ];
+        grid.innerHTML = statData.map(s =>
+          `<div class="stat-card"><div class="stat-icon">${s.icon}</div><div class="stat-val">${s.value}</div><div class="stat-lbl">${s.label}</div></div>`
+        ).join("");
+
+        // ── Trend keyword chips ────────────────────────────────
+        $("trendChips").innerHTML = trendKeywords.map(t =>
+          `<span class="trend-chip">${t.keyword || t.label || t} <span class="trend-count">${t.count || ""}</span></span>`
+        ).join("") || `<span class="muted">Trend verisi yok.</span>`;
+
+        // ── Mini bar chart (daily, last 14 days) ───────────────
+        const daily = (stats.daily || []).slice(-14);
+        if (daily.length) {
+          const max = Math.max(...daily.map(d => d.count), 1);
+          $("miniBarWrap").innerHTML = `<div class="mini-bar-chart">${daily.map(d =>
+            `<div class="mini-bar-col">
+              <div class="mini-bar" style="height:${Math.round((d.count/max)*60)}px" title="${d.date}: ${d.count}"></div>
+              <div class="mini-bar-lbl">${d.date.slice(5)}</div>
+            </div>`
+          ).join("")}</div>`;
+        }
+
+        // ── Persona gauges ────────────────────────────────────
+        const personaArr = stats.byPersona || [];
+        const pTotal = personaArr.reduce((s, x) => s + x.count, 0) || 1;
+        $("gaugeRow").innerHTML = personaArr.map(({ label: p, count: c }) => {
+          const pct = Math.round((c / pTotal) * 100);
+          return `<div class="gauge-card">
+            <svg class="gauge-svg" viewBox="0 0 40 40">
+              <circle r="16" cx="20" cy="20" fill="none" stroke="var(--line)" stroke-width="4"/>
+              <circle r="16" cx="20" cy="20" fill="none" stroke="var(--accent)" stroke-width="4"
+                stroke-dasharray="${pct} 100" stroke-dashoffset="25" stroke-linecap="round"/>
+              <text x="20" y="24" text-anchor="middle" font-size="9" fill="var(--ink)">${pct}%</text>
+            </svg>
+            <div class="gauge-lbl">${p} (${c})</div>
+          </div>`;
+        }).join("") || `<p class="muted">Persona verisi yok.</p>`;
+      } catch (err) {
+        grid.innerHTML = `<p class="muted" style="grid-column:1/-1;">Analitik yukleme hatasi: ${err.message}</p>`;
+        showToast("error", "Analitik Hatasi", err.message);
+      }
+    }
+
+    // ── Batch Panel ───────────────────────────────────────────────────
+    const activeBatchJobs = new Map();
+
+    function openBatch() {
+      $("batchModal").classList.add("open");
+    }
+    $("btnBatchOpen").addEventListener("click", openBatch);
+    $("closeBatch").addEventListener("click", () => $("batchModal").classList.remove("open"));
+    $("btnBatchCancel").addEventListener("click", () => $("batchModal").classList.remove("open"));
+
+    $("btnStartBatch").addEventListener("click", async () => {
+      const raw = $("batchTopics").value.trim();
+      if (!raw) { showToast("warn", "Konu Giriniz", "En az bir konu satirı girin."); return; }
+      const topics = raw.split("\n").map(s=>s.trim()).filter(Boolean);
+      const persona = $("batchPersona").value;
+      const quality = $("batchQuality").value;
+      $("batchProgressList").innerHTML = "";
+      topics.forEach(t => {
+        const item = document.createElement("div");
+        item.className = "batch-progress-item";
+        item.id = "bp_" + encodeURIComponent(t).slice(0,20);
+        item.innerHTML = `<span class="status-dot" style="background:#94a3b8;"></span> <span class="bp-topic">${t}</span> <span class="bp-status muted">Bekliyor...</span>`;
+        $("batchProgressList").appendChild(item);
+      });
+      try {
+        const res = await fetch("/api/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topics, persona, quality })
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        showToast("success", "Toplu Is Basladi", `${topics.length} konu isleniyor. Job: ${data.jobId}`);
+        pollBatchJob(data.jobId, topics.length);
+      } catch (err) {
+        showToast("error", "Batch Hatasi", err.message);
+      }
+    });
+
+    async function pollBatchJob(jobId, total) {
+      activeBatchJobs.set(jobId, true);
+      for (let i = 0; i < 120; i++) {
+        if (!activeBatchJobs.get(jobId)) break;
+        await sleep(3000);
+        try {
+          const res = await fetch(`/api/batch/${jobId}`);
+          if (!res.ok) break;
+          const data = await res.json();
+          if (data.results) {
+            data.results.forEach((r, idx) => {
+              updateBatchProgress(jobId, r.topic, r.status, idx, total);
+            });
+          }
+          if (data.status === "done") {
+            showToast("success", "Toplu Uretim Tamamlandi", `${data.results?.length||total} makale hazir.`);
+            activeBatchJobs.delete(jobId);
+            break;
+          }
+        } catch(_) {}
+      }
+    }
+
+    function updateBatchProgress(jobId, topic, status, idx, total) {
+      const key = "bp_" + encodeURIComponent(topic).slice(0,20);
+      const item = $(key);
+      if (!item) return;
+      const colors = { pending: "#94a3b8", running: "#f59e0b", done: "#22c55e", error: "#ef4444" };
+      const dot = item.querySelector(".status-dot");
+      const stat = item.querySelector(".bp-status");
+      if (dot) dot.style.background = colors[status] || "#94a3b8";
+      if (stat) stat.textContent = status === "done" ? "✓ Tamamlandi" : status === "error" ? "✗ Hata" : status === "running" ? "⟳ Isleniyor..." : "Bekliyor";
+    }
+
+    // ── Archive Search ────────────────────────────────────────────────
+    $("btnSearch").addEventListener("click", doSearch);
+    $("searchQ").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+
+    async function doSearch() {
+      const q = $("searchQ").value.trim();
+      const persona = $("searchPersona").value;
+      const quality = $("searchQuality").value;
+      if (!q) { showToast("warn", "Arama Terimi Girin"); return; }
+      const resultsEl = $("searchResults");
+      resultsEl.innerHTML = `<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:80%;"></div>`;
+      try {
+        const params = new URLSearchParams({ q, limit: 20 });
+        if (persona) params.set("persona", persona);
+        if (quality) params.set("quality", quality);
+        const res = await fetch(`/api/search?${params}`);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const hits = data.results || data;
+        if (!hits.length) {
+          resultsEl.innerHTML = `<p class="muted">Sonuc bulunamadi — "${q}"</p>`;
+          return;
+        }
+        resultsEl.innerHTML = hits.map(h => `
+          <div class="search-result-item">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <strong>${h.topic || h.title || "(baslıksız)"}</strong>
+              <span class="score-badge">${(h.score||0).toFixed ? (h.score*100).toFixed(0) : h.score}%</span>
+            </div>
+            <div class="muted" style="font-size:12px;">${h.persona||""} · ${h.quality||""} · ${h.ts ? new Date(h.ts).toLocaleDateString("tr-TR") : ""}</div>
+            <div style="font-size:13px;margin-top:4px;">${highlight(h.snippet||h.article?.slice(0,200)||"", $("searchQ").value)}</div>
+          </div>
+        `).join("");
+        // Suggestions
+        if (data.suggestions && data.suggestions.length) {
+          $("searchSuggest").innerHTML = data.suggestions.map(s =>
+            `<span class="pill suggest-pill" style="cursor:pointer;" onclick="this.closest('#tabSearch').querySelector('#searchQ').value='${s}';doSearch();">${s}</span>`
+          ).join("");
+        }
+      } catch (err) {
+        resultsEl.innerHTML = `<p class="muted">Arama hatasi: ${err.message}</p>`;
+        showToast("error", "Arama Hatasi", err.message);
+      }
+    }
+
+    function highlight(text, q) {
+      if (!q) return text;
+      const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi");
+      return text.replace(re, m => `<mark style="background:var(--accent-2,#f59e0b);color:#000;border-radius:2px;">${m}</mark>`);
+    }
+
+    // ── Timeline ──────────────────────────────────────────────────────
+    async function buildTimeline() {
+      const wrap = $("timelineWrap");
+      wrap.innerHTML = `<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line" style="width:75%;"></div>`;
+      try {
+        const res = await fetch("/api/archive");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const archive = await res.json();
+        const sorted = archive.slice().sort((a,b) => new Date(b.ts||0) - new Date(a.ts||0));
+        if (!sorted.length) { wrap.innerHTML = `<p class="muted">Arsiv bos.</p>`; return; }
+        wrap.innerHTML = sorted.slice(0,30).map(item => {
+          const d = item.ts ? new Date(item.ts) : null;
+          const dateStr = d ? d.toLocaleDateString("tr-TR", {day:"2-digit",month:"short",year:"numeric"}) : "?";
+          const timeStr = d ? d.toLocaleTimeString("tr-TR", {hour:"2-digit",minute:"2-digit"}) : "";
+          return `<div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-card">
+              <div class="timeline-date">${dateStr} <span class="muted">${timeStr}</span></div>
+              <div class="timeline-title">${item.topic||"(konu yok)"}</div>
+              <div class="timeline-meta">
+                <span class="channel-badge">${item.persona||"?"}</span>
+                <span class="channel-badge" style="background:var(--accent-2,#f59e0b10);color:var(--accent-2,#f59e0b);">${item.quality||""}</span>
+              </div>
+            </div>
+          </div>`;
+        }).join("");
+      } catch (err) {
+        wrap.innerHTML = `<p class="muted">Zaman serisi yukleme hatasi: ${err.message}</p>`;
+      }
+    }
+
+    // ── Distribution Log Tab ──────────────────────────────────────────
+    async function loadDistLog() {
+      const wrap = $("distLogWrap");
+      wrap.innerHTML = `<div class="skeleton-line"></div><div class="skeleton-line"></div>`;
+      try {
+        const res = await fetch("/api/distribution-log");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const logs = await res.json();
+        if (!logs.length) { wrap.innerHTML = `<p class="muted">Dagitim kaydi yok.</p>`; return; }
+        wrap.innerHTML = `<table class="dist-table">
+          <thead><tr><th>Tarih</th><th>Kanal</th><th>Konu</th><th>Durum</th></tr></thead>
+          <tbody>${logs.slice(-50).reverse().map(l =>
+            `<tr>
+              <td>${l.ts ? new Date(l.ts).toLocaleString("tr-TR") : "-"}</td>
+              <td><span class="channel-badge ${l.channel||"all"}">${l.channel||"?"}</span></td>
+              <td>${l.topic||"-"}</td>
+              <td>${l.status||"-"}</td>
+            </tr>`
+          ).join("")}</tbody>
+        </table>`;
+      } catch (err) {
+        wrap.innerHTML = `<p class="muted">Dagitim kaydi hatasi: ${err.message}</p>`;
+      }
+    }
+
+    // ── Export Functions ──────────────────────────────────────────────
+    // Store last generated article globally
+    let _lastArticle = null;
+    let _lastTopic = "";
+
+    // Hook: after article generated, store it
+    const _origLoadArchive = typeof loadArchivePanel === "function" ? loadArchivePanel : null;
+
+    function copyArticle() {
+      const txt = $("article") ? $("article").innerText : "";
+      if (!txt || txt.includes("Makale burada")) { showToast("warn", "Once Makale Uret"); return; }
+      navigator.clipboard.writeText(txt).then(() => showToast("success", "Kopyalandi","",1800));
+    }
+
+    async function exportArticle(format) {
+      const articleEl = $("article");
+      if (!articleEl) return;
+      const content = articleEl.innerText;
+      if (!content || content.includes("Makale burada")) { showToast("warn","Once Makale Uret"); return; }
+      try {
+        const topic = ($("topic")||{}).value || "makale";
+        const res = await fetch("/api/export", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ article: content, topic, format })
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const ext = format === "json" ? "json" : format === "markdown" ? "md" : "txt";
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url; a.download = `${topic.slice(0,30).replace(/\s+/g,"_")}.${ext}`;
+          a.click(); URL.revokeObjectURL(url);
+          showToast("success", `${ext.toUpperCase()} indirildi`,"",2000);
+        } else {
+          // Fallback: client-side export
+          clientExport(content, topic, format);
+        }
+      } catch(_) {
+        const content2 = $("article").innerText;
+        clientExport(content2, ($("topic")||{}).value||"makale", format);
+      }
+    }
+
+    function clientExport(content, topic, format) {
+      let text = content, ext = "txt", mime = "text/plain";
+      if (format === "markdown") {
+        text = `# ${topic}\n\n${content}`; ext = "md";
+      } else if (format === "json") {
+        text = JSON.stringify({ topic, persona: ($("persona")||{}).value, quality: ($("quality")||{}).value, article: content, ts: new Date().toISOString() }, null, 2);
+        ext = "json"; mime = "application/json";
+      }
+      const blob = new Blob([text], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${topic.slice(0,30).replace(/\s+/g,"_")}.${ext}`;
+      a.click(); URL.revokeObjectURL(url);
+      showToast("success", `${ext.toUpperCase()} indirildi (yerel)`,"",2000);
+    }
+
+    if ($("btnCopyArticle")) $("btnCopyArticle").addEventListener("click", copyArticle);
+    if ($("btnExportMd")) $("btnExportMd").addEventListener("click", () => exportArticle("markdown"));
+    if ($("btnExportJson")) $("btnExportJson").addEventListener("click", () => exportArticle("json"));
+    if ($("btnExportTxt")) $("btnExportTxt").addEventListener("click", () => exportArticle("text"));
+    if ($("btnCompare")) $("btnCompare").addEventListener("click", openCompareModal);
+
+    // ── Compare Modal ─────────────────────────────────────────────────
+    function openCompareModal() {
+      const modal = $("compareModal");
+      const aText = $("article") ? $("article").innerText : "";
+      $("compareA").innerText = aText.slice(0,600) || "(bos)";
+      $("compareB").innerText = "(Arsivden bir makale secin)";
+      $("compareResult").innerText = "(Karsilastirmak icin asagidaki butona basin)";
+      modal.classList.add("open");
+    }
+    $("closeCompare").addEventListener("click", () => $("compareModal").classList.remove("open"));
+
+    $("btnRunCompare").addEventListener("click", async () => {
+      const articleA = $("compareA").innerText;
+      const articleB = $("compareB").innerText;
+      $("compareResult").innerHTML = `<div class="skeleton-line"></div><div class="skeleton-line"></div>`;
+      try {
+        const res = await fetch("/api/compare", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ articleA, articleB })
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        $("compareResult").innerText = data.analysis || JSON.stringify(data, null, 2);
+      } catch (err) {
+        $("compareResult").innerText = "Karsilastirma hatasi: " + err.message;
+        showToast("error", "Karsilastirma Hatasi", err.message);
+      }
+    });
+
+    // ── Export Row Show/Hide ──────────────────────────────────────────
+    // Show export row when article is populated
+    const _articleObserver = new MutationObserver(() => {
+      const txt = $("article") ? $("article").innerText : "";
+      const show = txt && !txt.includes("Makale burada gorunecek");
+      if ($("exportRow")) $("exportRow").style.display = show ? "flex" : "none";
+    });
+    if ($("article")) _articleObserver.observe($("article"), { childList: true, subtree: true, characterData: true });
+
+    // ── FAB Bar ───────────────────────────────────────────────────────
+    $("fabScrollTop").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    $("fabSearch").addEventListener("click", () => switchTab("search"));
+    $("fabTimeline").addEventListener("click", () => switchTab("timeline"));
+    $("fabQuickGen").addEventListener("click", openQuickBrief);
+
+    // Show/hide FAB on scroll
+    window.addEventListener("scroll", () => {
+      const fab = $("fabBar");
+      if (!fab) return;
+      fab.style.opacity = window.scrollY > 200 ? "1" : "0";
+      fab.style.pointerEvents = window.scrollY > 200 ? "auto" : "none";
+    }, { passive: true });
+
+    // ── Agent Grid Renderer ───────────────────────────────────────────
+    function renderAgentGrid(agentPlan) {
+      const panel = $("agentPanel");
+      if (!panel || !agentPlan || !agentPlan.length) return;
+      panel.innerHTML = `<div class="agent-grid-full">${agentPlan.map(ag => `
+        <div class="agent-card-full">
+          <div class="agent-card-label">${ag.name || ag.id || "Ajan"}</div>
+          <div class="agent-card-role muted">${ag.role || ag.type || ""}</div>
+          ${ag.score !== undefined ? `<div class="score-badge">${(ag.score*100||0).toFixed ? (ag.score*100).toFixed(0) : ag.score}%</div>` : ""}
+        </div>
+      `).join("")}</div>`;
+    }
+
+    // ── Intercept generate response to render agent grid ─────────────
+    const _origFetch = window.fetch;
+    window.fetch = async function(url, opts) {
+      const res = await _origFetch.apply(this, arguments);
+      if (typeof url === "string" && url.includes("/api/generate-bundle")) {
+        const clone = res.clone();
+        clone.json().then(data => {
+          if (data && data.agentPlan) renderAgentGrid(data.agentPlan);
+        }).catch(()=>{});
+      }
+      return res;
+    };
+
+    // ── Keyboard shortcuts info toast on ? ────────────────────────────
+    document.addEventListener("keydown", e => {
+      if (e.key === "?" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+        showToast("info", "Klavye Kisayollari",
+          "Ctrl+K: Komut Paleti | Q: Hizli Brief | A: Analitik | Esc: Kapat", 6000);
+      }
+    });
+
+    // ── Initial toast ─────────────────────────────────────────────────
+    window.addEventListener("DOMContentLoaded", () => {}, { once: true });
+    setTimeout(() => {
+      showToast("success", "Sistem Hazir", "Ctrl+K ile komut paletini acabilirsiniz.", 4000);
+    }, 1200);
+
+    </script>
+  </body>
+</html>

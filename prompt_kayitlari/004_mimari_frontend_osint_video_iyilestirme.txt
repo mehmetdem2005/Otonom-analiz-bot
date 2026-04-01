@@ -1,0 +1,19 @@
+Tarih: 2026-03-28
+Konu: Mimari bolunme, frontend iyilestirme, OSINT/video guclendirme, model tercihi
+
+Kullanici talepleri:
+- server.js tek dosya yapisinin moduler hale getirilmesi
+- frontend buglari: deep-link, yuklenme durumlari, hata gorunurlugu, tasarim iyilestirme
+- OSINT radarinda statik esiklerden dinamik anomalilere gecis
+- video motorunda ffmpeg yolunun dinamik bulunmasi, yedek gorsel ve altyazi dayanikliligi
+- future report ve yorum botlarinda icerik cesitliligi ve nicel cikti
+- model tercihi 120b ve ustu
+
+Yapilanlar ozet:
+- routes/services/utils klasor yapisi olusturuldu
+- /api/generate-bundle endpointi ile paralel Future+Comments+Chart akisi eklendi
+- frontend yeniden tasarlandi ve durum/hata UX iyilestirildi
+- otomatik keyword/entity cikarimi ve deep-expand click akisi eklendi
+- OSINT dinamik esik ve askeri callsign analizi eklendi
+- video jeneratorde ffmpeg path dinamik tespit + fallback image eklendi
+- .env ve README guncellendi

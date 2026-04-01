@@ -14,10 +14,9 @@ import httpx
 from pathlib import Path
 from datetime import datetime
 
-import anthropic
-
 import hafiza_yoneticisi as hm
 import model_yoneticisi as my
+import llm_istemci as llm
 from kaynak_siteler import TUM_SITELER, HABER_SITELERI, ARASTIRMA_SITELERI
 
 BASE = Path(__file__).parent
@@ -58,13 +57,15 @@ class Ajan:
         self,
         ajan_id: int,
         api_anahtari: str,
+        llm_saglayici: str = "anthropic",
         model: str = "claude-haiku-4-5-20251001",
         perspektif: str = "",
     ):
         self.id = ajan_id
         self.perspektif = perspektif or PERSPEKTIFLER[ajan_id % len(PERSPEKTIFLER)]
         self.tur = 0
-        self.client = anthropic.AsyncAnthropic(api_key=api_anahtari)
+        self.api_anahtari = api_anahtari
+        self.llm_saglayici = llm_saglayici
         self.model = model
         self.calisiyor = True
         self.durum = "bekliyor"
@@ -276,28 +277,25 @@ class Ajan:
                     "zaman": datetime.now().isoformat(),
                 }
 
-            except anthropic.RateLimitError:
-                bekleme = min(2 ** deneme + random.uniform(0, 2), 60)
-                await hm.log_yaz(f"A{self.id}: RateLimit — {bekleme:.1f}s", "WARN")
-                await asyncio.sleep(bekleme)
-
-            except anthropic.APIStatusError as e:
-                await hm.log_yaz(f"A{self.id} API hatası ({e.status_code}): {e.message}", "ERROR")
-                await asyncio.sleep(2 ** min(deneme, 4))
-
             except Exception as e:
-                await hm.log_yaz(f"A{self.id} T{self.tur} genel hata: {type(e).__name__}: {e}", "ERROR")
+                mesaj = str(e).lower()
+                if "rate" in mesaj or "429" in mesaj:
+                    bekleme = min(2 ** deneme + random.uniform(0, 2), 60)
+                    await hm.log_yaz(f"A{self.id}: RateLimit — {bekleme:.1f}s", "WARN")
+                    await asyncio.sleep(bekleme)
+                    continue
                 await asyncio.sleep(2 ** min(deneme, 4))
+                await hm.log_yaz(f"A{self.id} T{self.tur} genel hata: {type(e).__name__}: {e}", "ERROR")
 
         self.durum = "hata"
         return {"ajan_id": self.id, "tur": self.tur, "durum": "hata", "icerik_ozet": "", "zaman": datetime.now().isoformat()}
 
     async def _api_cagir(self, sistem: str, kullanici: str) -> str:
-        """Ollama hazırsa yerel modeli kullan, yoksa Claude API'ye düş."""
+        """Ollama hazırsa yerel modeli kullan, yoksa seçili bulut LLM'e düş."""
         yonetici = my.get()
         if yonetici.lokal_model_hazir_mi() and await yonetici.ollama_calistiriyor_mu():
             return await self._ollama_cagir(sistem, kullanici)
-        return await self._claude_cagir(sistem, kullanici)
+        return await self._bulut_llm_cagir(sistem, kullanici)
 
     async def _ollama_cagir(self, sistem: str, kullanici: str) -> str:
         model_adi = my.get().aktif_model_adi()
@@ -315,14 +313,15 @@ class Ajan:
             )
             return r.json()["message"]["content"]
 
-    async def _claude_cagir(self, sistem: str, kullanici: str) -> str:
-        yanit = await self.client.messages.create(
-            model=self.model,
+    async def _bulut_llm_cagir(self, sistem: str, kullanici: str) -> str:
+        return await llm.metin_uret(
+            sistem,
+            kullanici,
             max_tokens=2048,
-            system=sistem,
-            messages=[{"role": "user", "content": kullanici}],
+            saglayici=self.llm_saglayici,
+            api_key=self.api_anahtari,
+            model=self.model,
         )
-        return yanit.content[0].text
 
     async def _ouroboros_isle(self, icerik: str):
         """Yanıttaki JSON kod değişikliği ve yeni ajan taleplerini işler."""

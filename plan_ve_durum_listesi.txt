@@ -1,0 +1,51 @@
+NEXUS-120 PLAN VE DURUM
+Guncelleme: 2026-03-28
+
+YAPILANLAR
+✅ DAL 1 Persona motoru entegre
+✅ DAL 2 Makale uretimi entegre (Groq)
+✅ DAL 3 Kapak prompt uretimi entegre
+✅ DAL 4 Arsiv yonetimi entegre (JSON)
+✅ DAL 5 Canli haber fuzyonu baglandi (Python)
+✅ DAL 6 Podcast/TTS baglandi (Python edge-tts)
+✅ DAL 7 Kapak cizimi baglandi (DALL-E fallback Pollinations)
+✅ DAL 8 Chart.js veri gorsellestirme baglandi
+✅ DAL 9 Dagitim agi baglandi (X flood simulasyon + Telegram)
+✅ DAL 10 Reserved endpoint eklendi
+✅ DAL 11 OSINT radar baglandi
+✅ DAL 12 Video generator modulu eklendi
+✅ DAL 13 Deep expand endpoint eklendi
+✅ DAL 14 Chronos endpoint eklendi
+✅ DAL 15 Yorum botlari endpoint eklendi
+✅ Prompt kayit klasoru olusturuldu
+✅ Tum DAL ve DAL 7-10 mimari agac dokumani eklendi
+✅ Groq baglantisi yokken fallback uretim modu eklendi
+✅ DAL 8 grafik PNG indirme ozelligi eklendi
+✅ Prompt 003 kaydi eklendi
+✅ Mimari moduler hale getirildi (routes/services/utils)
+✅ Frontend tasarim ve hata/yuklenme UX iyilestirildi
+✅ Deep-link otomatik keyword/entity cikarimi eklendi
+✅ Video olusturma UI yuklenme durumu eklendi
+✅ Arsiv paneli hata detaylariyla guclendirildi
+✅ OSINT radar dinamik esik/anomali mantigina gecti
+✅ Video motorunda ffmpeg yol tespiti dinamiklestirildi
+✅ Prompt 004 kaydi eklendi
+✅ Node_modules kaynakli iki tsconfig hata girdisi temizlendi
+✅ Python surecleri .venv interpreter ile calisacak hale getirildi
+✅ Edge TTS bagimliligi kuruldu ve podcast endpoint dogrulandi
+✅ Video endpoint ffmpeg-static + PPM fallback ile calisir hale getirildi
+✅ Frontend animasyon/transition ve coklu ekran responsive tasarim guclendirildi
+✅ Persona ve gelecek/yorum prompt kalitesi artirildi
+✅ Prompt 005 kaydi eklendi
+✅ Eksik routes/apiRoutes.js yeniden kuruldu ve API omurgasi ayağa kaldirildi
+✅ Ontoloji motoru ve ajan orkestratoru generate akisina baglandi
+✅ Frontend ontoloji / ajan / konsensus panelleri eklendi
+✅ X kullanicisi kisiligi: tweets.json + benzerlik arama baglandi
+✅ DAL 7 DALL-E response robust retry/backoff eklendi
+✅ DAL 12 altyazi zamanlama mantigi agirlikli segmentasyon ile iyilestirildi
+
+PLANLANAN / EK GELISTIRME
+❌ X OAuth 1.0a gercek yayin (su an simulasyon)
+❌ DAL 8 paragraf alti otomatik inline grafik yerlestirme
+✅ DAL 11 alarmlari makale uretim prompt baglamina enjekte edildi
+❌ DAL 12 Edge TTS zaman bilgisinden kelime-bazli altyazi zamanlama

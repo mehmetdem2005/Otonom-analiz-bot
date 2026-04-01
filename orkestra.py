@@ -4,6 +4,7 @@ Orkestra — 10 (ve dinamik olarak büyüyen) ajanları yönetir.
 - Ouroboros: kod değişiklik önerileri periyodik uygulanır
 - Disk: her turda doluluk kontrol edilir
 - WebSocket ile UI'ya canlı durum gönderilir
+- Istek önceliklendirmesi: Kritik ajanlar (Mühendis, Kod Denetçisi) önce
 """
 
 import asyncio
@@ -24,10 +25,26 @@ BASE = Path(__file__).parent
 BASLANGIC_AJAN_SAYISI = 10
 MAKS_AJAN_SAYISI = 50  # Dinamik üretilen dahil
 
+# Ajan perspektiflerine göre öncelik (düşük = yüksek öncelik)
+AJAN_ONCELIK = {
+    "mühendis": 1,
+    "kod denetçisi": 1,
+    "stratejist": 2,
+    "uygulayıcı": 2,
+    "sentezci": 3,
+    "araştırmacı": 4,
+    "bütünleştirici": 5,
+    "eleştirmen": 5,
+    "veri analisti": 5,
+    "inovatör": 6,
+}
+
 
 class Orkestra:
-    def __init__(self, api_anahtari: str):
+    def __init__(self, llm_saglayici: str, api_anahtari: str, model_adi: str):
+        self.llm_saglayici = llm_saglayici
         self.api_anahtari = api_anahtari
+        self.model_adi = model_adi
         self.ajanlar: list[Ajan] = []
         self.tasklar: list[asyncio.Task] = []
         self.calisiyor = False
@@ -38,9 +55,20 @@ class Orkestra:
         self._yonetim_sayac = 0
         self._olustur_baslangic_ajanlar()
 
+    def _ajan_bekleme_suresi(self, ajan: Ajan) -> float:
+        """Ajan perspektifine göre bekleme süresi: Öncelikli ajanlar daha az bekler."""
+        perspektif_anahtar = ajan.perspektif.split(":")[0].lower().strip()
+        oncelik = AJAN_ONCELIK.get(perspektif_anahtar, 7)
+        return 1.0 + (oncelik * 0.5)  # 1s (yüksek) => 4.5s (düşük)
+
     def _olustur_baslangic_ajanlar(self):
         self.ajanlar = [
-            Ajan(ajan_id=i, api_anahtari=self.api_anahtari)
+            Ajan(
+                ajan_id=i,
+                api_anahtari=self.api_anahtari,
+                llm_saglayici=self.llm_saglayici,
+                model=self.model_adi,
+            )
             for i in range(BASLANGIC_AJAN_SAYISI)
         ]
 
@@ -63,7 +91,7 @@ class Orkestra:
             asyncio.create_task(
                 ajan.sonsuz_dongu(
                     durum_callback=self._ajan_tamamlama_callback,
-                    bekleme_suresi=5.0,
+                    bekleme_suresi=self._ajan_bekleme_suresi(ajan),
                 ),
                 name=f"ajan-{ajan.id}",
             )
@@ -83,7 +111,11 @@ class Orkestra:
                 await asyncio.sleep(60)
 
                 # 1) Disk kontrolü
-                await dm.disk_kontrol_ve_optimize(self.api_anahtari)
+                await dm.disk_kontrol_ve_optimize(
+                    self.llm_saglayici,
+                    self.api_anahtari,
+                    self.model_adi,
+                )
 
                 # 2) Ouroboros: bekleyen kod değişikliklerini uygula
                 sonuclar = await kd.bekleyen_onerileri_isle(self.api_anahtari)
@@ -98,7 +130,11 @@ class Orkestra:
                 # 4) Eğitim verisi üretimi (her 30 dakikada bir)
                 self._yonetim_sayac += 1
                 if self._yonetim_sayac % 30 == 0:
-                    await evu.dataset_olustur(self.api_anahtari)
+                    await evu.dataset_olustur(
+                        self.llm_saglayici,
+                        self.api_anahtari,
+                        self.model_adi,
+                    )
 
                 # 5) Model eğitimi (model_egitici kendi 6h guard'ını yönetir)
                 await me.egitim_calistir(self.api_anahtari)
@@ -138,6 +174,8 @@ class Orkestra:
                 yeni_ajan = Ajan(
                     ajan_id=yeni_id,
                     api_anahtari=self.api_anahtari,
+                    llm_saglayici=self.llm_saglayici,
+                    model=self.model_adi,
                     perspektif=perspektif,
                 )
                 self.ajanlar.append(yeni_ajan)
@@ -146,7 +184,7 @@ class Orkestra:
                 task = asyncio.create_task(
                     yeni_ajan.sonsuz_dongu(
                         durum_callback=self._ajan_tamamlama_callback,
-                        bekleme_suresi=5.0,
+                        bekleme_suresi=self._ajan_bekleme_suresi(yeni_ajan),
                     ),
                     name=f"ajan-{yeni_id}",
                 )
