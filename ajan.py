@@ -17,6 +17,7 @@ from datetime import datetime
 import anthropic
 
 import hafiza_yoneticisi as hm
+import model_yoneticisi as my
 from kaynak_siteler import TUM_SITELER, HABER_SITELERI, ARASTIRMA_SITELERI
 
 BASE = Path(__file__).parent
@@ -252,13 +253,7 @@ class Ajan:
         maks_deneme = 6
         for deneme in range(maks_deneme):
             try:
-                yanit = await self.client.messages.create(
-                    model=self.model,
-                    max_tokens=2048,
-                    system=sistem,
-                    messages=[{"role": "user", "content": kullanici}],
-                )
-                icerik = yanit.content[0].text
+                icerik = await self._api_cagir(sistem, kullanici)
                 self.son_cikti = icerik
 
                 # Ouroboros: JSON kod önerisini çıkar ve kaydet
@@ -296,6 +291,38 @@ class Ajan:
 
         self.durum = "hata"
         return {"ajan_id": self.id, "tur": self.tur, "durum": "hata", "icerik_ozet": "", "zaman": datetime.now().isoformat()}
+
+    async def _api_cagir(self, sistem: str, kullanici: str) -> str:
+        """Ollama hazırsa yerel modeli kullan, yoksa Claude API'ye düş."""
+        yonetici = my.get()
+        if yonetici.lokal_model_hazir_mi() and await yonetici.ollama_calistiriyor_mu():
+            return await self._ollama_cagir(sistem, kullanici)
+        return await self._claude_cagir(sistem, kullanici)
+
+    async def _ollama_cagir(self, sistem: str, kullanici: str) -> str:
+        model_adi = my.get().aktif_model_adi()
+        async with httpx.AsyncClient(timeout=120) as c:
+            r = await c.post(
+                "http://localhost:11434/api/chat",
+                json={
+                    "model": model_adi,
+                    "messages": [
+                        {"role": "system", "content": sistem},
+                        {"role": "user", "content": kullanici},
+                    ],
+                    "stream": False,
+                },
+            )
+            return r.json()["message"]["content"]
+
+    async def _claude_cagir(self, sistem: str, kullanici: str) -> str:
+        yanit = await self.client.messages.create(
+            model=self.model,
+            max_tokens=2048,
+            system=sistem,
+            messages=[{"role": "user", "content": kullanici}],
+        )
+        return yanit.content[0].text
 
     async def _ouroboros_isle(self, icerik: str):
         """Yanıttaki JSON kod değişikliği ve yeni ajan taleplerini işler."""
