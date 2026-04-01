@@ -1,0 +1,15 @@
+Tarih: 2026-04-01
+İstek özeti:
+- Menülerin boş görünmesi
+- Önceki ana ekranın (chat/directif) geri gelmesi
+- Sağ üstte 3 çizgi ile kayan menü
+- Logların boş görünmemesi
+
+Yapılanlar:
+1) `/` route tekrar eski ana ekranı döndürecek şekilde geri alındı.
+2) Ana ekrana sağ üstte `☰` hamburger butonu eklendi.
+3) Hamburger ile açılan sağdan kayan menü eklendi.
+4) Chat paneli ana ekranda korunup aktif bırakıldı.
+5) Ana ekrana `SİSTEM LOGLARI (CANLI)` paneli eklendi.
+6) `/api/logs/recent` endpointinden 2 saniyede bir log polling eklendi.
+7) Sunucu yeniden başlatıldı ve HTML doğrulaması yapıldı.

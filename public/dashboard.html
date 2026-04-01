@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otonom Bot - Gerçek Zamanlı Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0b1120;
+            --panel: #111d2e;
+            --ink: #e2e8f0;
+            --accent: #10b981;
+            --accent-2: #f59e0b;
+            --warn: #f87171;
+            --line: #1e3048;
+            --success: #22c55e;
+            --info: #3b82f6;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+            background: var(--bg);
+            color: var(--ink);
+            overflow: hidden;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           LAYOUT
+        ═══════════════════════════════════════════════════════════ */
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #0f1820 0%, #111d2e 100%);
+            border-right: 1px solid var(--line);
+            overflow-y: auto;
+            padding: 16px;
+            flex-shrink: 0;
+            z-index: 1000;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--panel);
+            border-bottom: 1px solid var(--line);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .content {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           SIDEBAR MENU
+        ═══════════════════════════════════════════════════════════ */
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+            margin-bottom: 12px;
+            margin-top: 20px;
+        }
+
+        .sidebar-title:first-child {
+            margin-top: 0;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #94a3b8;
+            font-size: 13px;
+            border: 1px solid transparent;
+            user-select: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .menu-item.active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent);
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        .menu-icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .menu-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            margin-left: auto;
+            opacity: 0;
+        }
+
+        .menu-item.active .menu-dot {
+            opacity: 1;
+        }
+
+        /* Agent list in sidebar */
+        .agent-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 12px;
+            color: #cbd5e1;
+            border: 1px solid transparent;
+        }
+
+        .agent-item:hover {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.15);
+        }
+
+        .agent-item.active {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .agent-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            animation: pulse 2s infinite;
+        }
+
+        .agent-status.running {
+            background: #22c55e;
+        }
+
+        .agent-status.warning {
+            background: #f59e0b;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           HEADER
+        ═══════════════════════════════════════════════════════════ */
+        .header-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 6px;
+            font-size: 12px;
+            color: #22c55e;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        .header-time {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           TABS
+        ═══════════════════════════════════════════════════════════ */
+        .view-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .view-panel {
+            display: none;
+            flex: 1;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .view-panel.active {
+            display: flex;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           COMMON COMPONENTS
+        ═══════════════════════════════════════════════════════════ */
+        .panel-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-viewer {
+            flex: 1;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-line {
+            margin-bottom: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .log-line:hover {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .log-time {
+            color: #cbd5e1;
+            font-weight: 600;
+        }
+
+        .log-level-info {
+            color: #3b82f6;
+        }
+
+        .log-level-warn {
+            color: #f59e0b;
+        }
+
+        .log-level-error {
+            color: #f87171;
+        }
+
+        .log-level-success {
+            color: #22c55e;
+        }
+
+        .log-msg {
+            color: #e2e8f0;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           SPECIFIC PANELS
+        ═══════════════════════════════════════════════════════════ */
+
+        /* Agent Monitor */
+        .agent-monitor {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            padding: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .agent-detail {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .agent-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .agent-name {
+            font-weight: 700;
+            color: var(--accent);
+            font-size: 14px;
+        }
+
+        .agent-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            font-size: 11px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .meta-label {
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-weight: 600;
+            font-size: 10px;
+        }
+
+        .meta-value {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Database Panel */
+        .database-panel {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 16px;
+            gap: 12px;
+        }
+
+        .db-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #059669;
+        }
+
+        .btn-secondary {
+            background: var(--panel);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .db-view {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .db-collection {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            overflow: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .db-header {
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--line);
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        .db-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.5;
+        }
+
+        .json-key {
+            color: #f472b6;
+        }
+
+        .json-value {
+            color: #86efac;
+        }
+
+        .json-string {
+            color: #93c5fd;
+        }
+
+        /* Analytics Panel */
+        .analytics-panel {
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .metric-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--accent-2);
+            margin-bottom: 8px;
+        }
+
+        .metric-bar {
+            width: 100%;
+            height: 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .metric-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .metric-desc {
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.5;
+        }
+
+        .progress-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .progress-item {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 11px;
+        }
+
+        .progress-label {
+            color: #cbd5e1;
+            margin-bottom: 4px;
+        }
+
+        .progress-value {
+            color: var(--accent);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           SCROLLBAR
+        ═══════════════════════════════════════════════════════════ */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.5);
+        }
+
+        /* ═══════════════════════════════════════════════════════════
+           RESPONSIVE
+        ═══════════════════════════════════════════════════════════ */
+        @media (max-width: 1200px) {
+            .sidebar {
+                width: 240px;
+            }
+
+            .agent-monitor {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+
+            .container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div style="font-weight: 700; font-size: 14px; color: var(--accent); margin-bottom: 20px;">
+                ⚡ Kontrol Paneli
+            </div>
+
+            <!-- Main Menu -->
+            <div class="sidebar-title">Görüntüler</div>
+            <div class="menu-item active" data-view="overview">
+                <span class="menu-icon">📊</span>
+                <span>Genel Bakış</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="agents">
+                <span class="menu-icon">🤖</span>
+                <span>Ajan İzleme</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="messages">
+                <span class="menu-icon">💬</span>
+                <span>Konuşmalar</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="inter-comm">
+                <span class="menu-icon">🔗</span>
+                <span>Ajan İletişimi</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="logs">
+                <span class="menu-icon">📝</span>
+                <span>Tüm Loglar</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="errors">
+                <span class="menu-icon">❌</span>
+                <span>Hata Logları</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <!-- Database & Analytics -->
+            <div class="sidebar-title">Depoyu</div>
+            <div class="menu-item" data-view="database">
+                <span class="menu-icon">🗄️</span>
+                <span>Database</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <div class="menu-item" data-view="analytics">
+                <span class="menu-icon">📈</span>
+                <span>AI Gelişimi</span>
+                <span class="menu-dot">●</span>
+            </div>
+
+            <!-- Agents List -->
+            <div class="sidebar-title" style="margin-top: 16px;">Ajanlar</div>
+            <div class="agent-list" id="agentList">
+                <!-- Dinamik olarak doldurulacak -->
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- HEADER -->
+            <div class="header">
+                <div class="header-title" id="viewTitle">Genel Bakış</div>
+                <div class="header-info">
+                    <div class="header-actions">
+                        <button class="btn" id="startBtn" onclick="startSystem()">Başlat</button>
+                        <button class="btn btn-secondary" id="stopBtn" onclick="stopSystem()">Durdur</button>
+                    </div>
+                    <div class="status-badge">
+                        <span class="status-dot"></span>
+                        <span id="systemStatus">Hazır</span>
+                    </div>
+                    <div class="header-time" id="currentTime"></div>
+                </div>
+            </div>
+
+            <!-- CONTENT -->
+            <div class="content">
+                <div class="view-container">
+                    <!-- Overview -->
+                    <div class="view-panel active" data-view="overview">
+                        <div style="padding: 16px; overflow-y: auto;">
+                            <div class="panel-title">Sistem Durumu</div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                                <div class="metric-card">
+                                    <div class="metric-title">Çalışan Ajanlar</div>
+                                    <div class="metric-value" id="runningAgents">0</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-title">İşlenen İstekler</div>
+                                    <div class="metric-value" id="processedRequests">0</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-title">Hata Sayısı</div>
+                                    <div class="metric-value" style="color: #f87171;" id="errorCount">0</div>
+                                </div>
+                                <div class="metric-card">
+                                    <div class="metric-title">API Çağrıları</div>
+                                    <div class="metric-value" id="apiCalls">0</div>
+                                </div>
+                            </div>
+
+                            <div class="panel-title">Son Loglar</div>
+                            <div class="log-viewer" id="overviewLogs" style="max-height: 400px;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Agent Monitoring -->
+                    <div class="view-panel" data-view="agents">
+                        <div class="agent-monitor" id="agentMonitor">
+                            <!-- Dinamik olarak doldurulacak -->
+                        </div>
+                    </div>
+
+                    <!-- Messages -->
+                    <div class="view-panel" data-view="messages">
+                        <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 12px;">
+                            <div class="panel-title">Ajan Konuşmaları</div>
+                            <div class="log-viewer" id="messagesLog"></div>
+                        </div>
+                    </div>
+
+                    <!-- Inter-Agent Communication -->
+                    <div class="view-panel" data-view="inter-comm">
+                        <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 12px;">
+                            <div class="panel-title">Ajanlar Arası İletişim</div>
+                            <div class="log-viewer" id="interCommLog"></div>
+                        </div>
+                    </div>
+
+                    <!-- All Logs -->
+                    <div class="view-panel" data-view="logs">
+                        <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 12px;">
+                            <div class="panel-title">Tüm Sistem Logları</div>
+                            <div class="log-viewer" id="allLogs"></div>
+                        </div>
+                    </div>
+
+                    <!-- Error Logs -->
+                    <div class="view-panel" data-view="errors">
+                        <div style="display: flex; flex-direction: column; height: 100%; padding: 16px; gap: 12px;">
+                            <div class="panel-title">Hata Logları</div>
+                            <div class="log-viewer" id="errorLogs"></div>
+                        </div>
+                    </div>
+
+                    <!-- Database -->
+                    <div class="view-panel" data-view="database">
+                        <div class="database-panel">
+                            <div class="panel-title">Database Yönetimi</div>
+                            <div class="db-controls">
+                                <button class="btn" onclick="loadDatabase('hafiza.json')">Hafıza Yükle</button>
+                                <button class="btn" onclick="loadDatabase('alerts.json')">Uyarılar Yükle</button>
+                                <button class="btn" onclick="loadDatabase('tweets.json')">Tweetler Yükle</button>
+                                <button class="btn" onclick="loadDatabase('archive.json')">Arşiv Yükle</button>
+                            </div>
+                            <div class="db-view">
+                                <div class="db-collection">
+                                    <div class="db-header" id="dbTitle">Veritabanı</div>
+                                    <div class="db-content" id="dbContent">Seçim yapın...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Analytics -->
+                    <div class="view-panel" data-view="analytics">
+                        <div class="analytics-panel">
+                            <div class="panel-title">Yapay Zeka Gelişim Analizi</div>
+
+                            <div class="metric-card">
+                                <div class="metric-title">Öz-İyileştirme Oranı</div>
+                                <div class="metric-value" id="selfImprovementRate">0%</div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill" id="selfImprovementBar" style="width: 0%;">
+                                        <span></span>
+                                    </div>
+                                </div>
+                                <div class="metric-desc">Sistemin kendi kendini geliştirme kapasitesi (Ouroboros pattern)</div>
+                            </div>
+
+                            <div class="metric-card">
+                                <div class="metric-title">API Bağımlılığı Azalması</div>
+                                <div class="metric-value" id="apiDepReduction">0%</div>
+                                <div class="metric-bar">
+                                    <div class="metric-bar-fill" id="apiDepBar" style="width: 0%;">
+                                        <span></span>
+                                    </div>
+                                </div>
+                                <div class="metric-desc">API çağrı sayısının azaltılması ve yerel işlem artırılması</div>
+                            </div>
+
+                            <div class="metric-card">
+                                <div class="metric-title">Sistem Parametreleri</div>
+                                <div class="progress-grid">
+                                    <div class="progress-item">
+                                        <div class="progress-label">Toplam Parametreler</div>
+                                        <div class="progress-value" id="totalParams">0</div>
+                                    </div>
+                                    <div class="progress-item">
+                                        <div class="progress-label">Eğitili Parametreler</div>
+                                        <div class="progress-value" id="trainedParams">0</div>
+                                    </div>
+                                    <div class="progress-item">
+                                        <div class="progress-label">Model Hassasiyeti</div>
+                                        <div class="progress-value" id="modelAccuracy">85%</div>
+                                    </div>
+                                    <div class="progress-item">
+                                        <div class="progress-label">Adaptasyon Hızı</div>
+                                        <div class="progress-value" id="adaptationSpeed">High</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="metric-card">
+                                <div class="metric-title">Yetenekler</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;">
+                                    <div>✅ Çok dilli işleme</div>
+                                    <div>✅ Gerçek zamanlı analiz</div>
+                                    <div>✅ Bağlamsal öğrenme</div>
+                                    <div>✅ Dinamik uyarlama</div>
+                                    <div>✅ Hata toleransı</div>
+                                    <div>✅ Dağıtık işlem</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const WS_URL = `ws://${window.location.host}/ws`;
+        let ws = null;
+        let agentStats = {};
+        let logBuffer = [];
+        let lastRenderedLogSet = new Set();
+        const MAX_LOGS = 500;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeUI();
+            connectWebSocket();
+            updateTime();
+            setInterval(updateTime, 1000);
+            loadInitialData();
+            loadSystemStatus();
+            loadRecentLogs();
+            setInterval(loadSystemStatus, 3000);
+            setInterval(loadRecentLogs, 3000);
+        });
+
+        function initializeUI() {
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.addEventListener('click', () => switchView(item.dataset.view));
+            });
+
+            document.querySelectorAll('.agent-item').forEach(item => {
+                item.addEventListener('click', () => selectAgent(item.dataset.agent));
+            });
+        }
+
+        function switchView(view) {
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            document.querySelector(`[data-view="${view}"]`).classList.add('active');
+
+            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`[data-view="${view}"]`).classList.add('active');
+
+            const titles = {
+                'overview': 'Genel Bakış',
+                'agents': 'Ajan İzleme',
+                'messages': 'Konuşmalar',
+                'inter-comm': 'Ajan İletişimi',
+                'logs': 'Tüm Loglar',
+                'errors': 'Hata Logları',
+                'database': 'Database',
+                'analytics': 'AI Gelişimi'
+            };
+
+            document.getElementById('viewTitle').textContent = titles[view] || view;
+        }
+
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                addLog('INFO', 'WebSocket bağlantı kuruldu');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    processWebSocketMessage(data);
+                } catch (e) {
+                    console.error('WS parse error:', e);
+                }
+            };
+
+            ws.onerror = (error) => {
+                addLog('ERROR', `WebSocket hatası: ${error}`);
+            };
+
+            ws.onclose = () => {
+                addLog('WARN', 'WebSocket bağlantısı kapandı, yeniden bağlanılıyor...');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function processWebSocketMessage(data) {
+            const eventType = data.type || data.tip;
+            const payload = data.veri || data;
+
+            if (eventType === 'agent_status') {
+                updateAgentStatus(payload);
+            } else if (eventType === 'ajan_sonuc') {
+                handleAgentResult(payload);
+            } else if (eventType === 'durum') {
+                updateSystemStatus(payload);
+            } else if (eventType === 'log') {
+                addLog(payload.seviye || data.level || 'INFO', payload.mesaj || data.message || '', payload.ajan || data.agent || null);
+            } else if (eventType === 'message' || eventType === 'chat_yanit') {
+                addMessage(payload.ajan || 'Sistem', payload.mesaj || payload || data.message || '');
+            } else if (eventType === 'inter_comm') {
+                addInterCommMessage(payload);
+            }
+        }
+
+        function handleAgentResult(result) {
+            const agentName = result.perspektif || `A${String(result.ajan_id ?? 0).padStart(2, '0')}`;
+            agentStats[agentName] = {
+                status: result.durum || 'çalışıyor',
+                processed: result.tur || 0,
+                errors: result.durum === 'hata' ? 1 : 0,
+                lastRun: result.toplam_tur || result.tur || '-',
+                lastOutput: result.icerik_ozet || 'Çıktı üretiliyor...'
+            };
+            updateAgentMonitor();
+            addMessage(agentName, result.icerik_ozet || `${agentName} çıktı üretti.`);
+            addLog(result.durum === 'hata' ? 'ERROR' : 'SUCCESS', `${agentName} tur ${result.tur || 0} tamamladı`, agentName);
+        }
+
+        function updateAgentStatus(data) {
+            agentStats[data.agent] = data;
+            updateAgentMonitor();
+        }
+
+        function updateSystemStatus(status) {
+            document.getElementById('systemStatus').textContent = status.calisiyor ? 'Çalışıyor' : 'Beklemede';
+            document.getElementById('startBtn').style.display = status.calisiyor ? 'none' : 'inline-flex';
+            document.getElementById('stopBtn').style.display = status.calisiyor ? 'inline-flex' : 'none';
+
+            if (Array.isArray(status.ajanlar)) {
+                agentStats = {};
+                status.ajanlar.forEach((agent) => {
+                    const agentName = agent.perspektif || `A${String(agent.id ?? 0).padStart(2, '0')}`;
+                    agentStats[agentName] = {
+                        status: agent.durum || 'bekliyor',
+                        processed: agent.tur || 0,
+                        errors: 0,
+                        lastRun: status.toplam_tur || 0,
+                        lastOutput: 'Canlı çıktı bekleniyor...'
+                    };
+                });
+                updateAgentMonitor();
+            }
+        }
+
+        function addLog(level, message, agent = null) {
+            const time = new Date().toLocaleTimeString('tr-TR');
+            const entry = { level, message, agent, time };
+            logBuffer.push(entry);
+
+            if (logBuffer.length > MAX_LOGS) logBuffer.shift();
+
+            const className = `log-level-${level.toLowerCase()}`;
+            const agentStr = agent ? ` [${agent}]` : '';
+            const html = `<div class="log-line">
+                <span class="log-time">${time}</span>
+                <span class="${className}"> [${level}]</span>
+                <span class="log-msg">${agentStr} ${escapeHtml(message)}</span>
+            </div>`;
+
+            insertLog('overviewLogs', html);
+            insertLog('allLogs', html);
+
+            if (level === 'ERROR') {
+                insertLog('errorLogs', html);
+                document.getElementById('errorCount').textContent = parseInt(document.getElementById('errorCount').textContent) + 1;
+            }
+        }
+
+        function insertLog(elementId, html) {
+            const elem = document.getElementById(elementId);
+            if (elem) {
+                elem.innerHTML += html;
+                elem.scrollTop = elem.scrollHeight;
+                // Limit displayed logs
+                if (elem.children.length > 200) {
+                    for (let i = 0; i < 50; i++) {
+                        elem.removeChild(elem.firstChild);
+                    }
+                }
+            }
+        }
+
+        function addMessage(agent, message) {
+            const time = new Date().toLocaleTimeString('tr-TR');
+            const html = `<div class="log-line">
+                <span class="log-time">${time}</span>
+                <span class="log-level-info">[${agent}]</span>
+                <span class="log-msg">${escapeHtml(message)}</span>
+            </div>`;
+            insertLog('messagesLog', html);
+        }
+
+        function addInterCommMessage(data) {
+            const time = new Date().toLocaleTimeString('tr-TR');
+            const html = `<div class="log-line">
+                <span class="log-time">${time}</span>
+                <span class="log-level-info">[${data.from} → ${data.to}]</span>
+                <span class="log-msg">${escapeHtml(data.message)}</span>
+            </div>`;
+            insertLog('interCommLog', html);
+        }
+
+        function updateAgentMonitor() {
+            const monitor = document.getElementById('agentMonitor');
+            if (!monitor) return;
+
+            monitor.innerHTML = Object.entries(agentStats).map(([name, stats]) => `
+                <div class="agent-detail">
+                    <div class="agent-header">
+                        <div>
+                            <div class="agent-name">${name}</div>
+                        </div>
+                        <div class="agent-status ${stats.status === 'running' ? 'running' : stats.status === 'warning' ? 'warning' : ''}"></div>
+                    </div>
+                    <div class="agent-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Durum</span>
+                            <span class="meta-value">${stats.status}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">İşlem Sayısı</span>
+                            <span class="meta-value">${stats.processed || 0}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Hata Sayısı</span>
+                            <span class="meta-value">${stats.errors || 0}</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Son Çalıştır</span>
+                            <span class="meta-value">${stats.lastRun || '-'}</span>
+                        </div>
+                    </div>
+                    <div style="padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 11px; line-height: 1.5; max-height: 100px; overflow-y: auto;">
+                        ${stats.lastOutput || 'Çıktı bekleniyor...'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function loadDatabase(filename) {
+            try {
+                const response = await fetch(`/api/database/${filename}`);
+                const data = await response.json();
+
+                document.getElementById('dbTitle').textContent = `Database: ${filename}`;
+                document.getElementById('dbContent').textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('dbContent').textContent = `Hata: ${error.message}`;
+            }
+        }
+
+        async function loadInitialData() {
+            try {
+                const response = await fetch('/api/analytics');
+                const data = await response.json();
+
+                document.getElementById('runningAgents').textContent = data.runningAgents || 0;
+                document.getElementById('processedRequests').textContent = data.processedRequests || 0;
+                document.getElementById('errorCount').textContent = data.errorCount || 0;
+                document.getElementById('apiCalls').textContent = data.apiCalls || 0;
+
+                // Analytics
+                document.getElementById('selfImprovementRate').textContent = (data.selfImprovementRate || 0) + '%';
+                document.getElementById('selfImprovementBar').style.width = (data.selfImprovementRate || 0) + '%';
+
+                document.getElementById('apiDepReduction').textContent = (data.apiDependencyReduction || 0) + '%';
+                document.getElementById('apiDepBar').style.width = (data.apiDependencyReduction || 0) + '%';
+
+                document.getElementById('totalParams').textContent = (data.totalParameters || 0).toLocaleString('tr-TR');
+                document.getElementById('trainedParams').textContent = (data.trainedParameters || 0).toLocaleString('tr-TR');
+            } catch (error) {
+                console.error('Failed to load analytics:', error);
+            }
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch('/durum');
+                const data = await response.json();
+                updateSystemStatus(data);
+            } catch (error) {
+                addLog('ERROR', `Durum alınamadı: ${error.message}`);
+            }
+        }
+
+        async function loadRecentLogs() {
+            try {
+                const response = await fetch('/api/logs/recent');
+                const data = await response.json();
+                if (!Array.isArray(data.logs)) return;
+
+                data.logs.forEach((line) => {
+                    if (lastRenderedLogSet.has(line)) return;
+                    lastRenderedLogSet.add(line);
+                    const parsed = parseLogLine(line);
+                    addLog(parsed.level, parsed.message, parsed.agent);
+                });
+
+                if (lastRenderedLogSet.size > 500) {
+                    lastRenderedLogSet = new Set(Array.from(lastRenderedLogSet).slice(-250));
+                }
+            } catch (error) {
+                console.error('Failed to load logs:', error);
+            }
+        }
+
+        function parseLogLine(line) {
+            const match = line.match(/^\[(.*?)\]\s+\[(.*?)\]\s+(.*)$/);
+            if (!match) {
+                return { level: 'INFO', message: line, agent: null };
+            }
+
+            const level = match[2];
+            const message = match[3];
+            let agent = null;
+            const agentMatch = message.match(/A\d+|mühendis|kod denetçisi|stratejist|uygulayıcı|sentezci|araştırmacı|bütünleştirici|eleştirmen|veri analisti|inovatör/i);
+            if (agentMatch) {
+                agent = agentMatch[0];
+            }
+
+            return { level, message, agent };
+        }
+
+        async function startSystem() {
+            try {
+                const response = await fetch('/baslat', { method: 'POST' });
+                const data = await response.json();
+                if (data.hata) {
+                    addLog('ERROR', data.hata);
+                    return;
+                }
+                addLog('SUCCESS', 'Sistem başlatıldı');
+                loadSystemStatus();
+            } catch (error) {
+                addLog('ERROR', `Başlatma hatası: ${error.message}`);
+            }
+        }
+
+        async function stopSystem() {
+            try {
+                await fetch('/durdur', { method: 'POST' });
+                addLog('WARN', 'Sistem durduruldu');
+                loadSystemStatus();
+            } catch (error) {
+                addLog('ERROR', `Durdurma hatası: ${error.message}`);
+            }
+        }
+
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString('tr-TR');
+        }
+
+        function selectAgent(agentId) {
+            document.querySelectorAll('.agent-item').forEach(item => item.classList.remove('active'));
+            event.target.closest('.agent-item').classList.add('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Fetch agent list
+        async function loadAgentList() {
+            try {
+                const response = await fetch('/api/agents');
+                const agents = await response.json();
+                const list = document.getElementById('agentList');
+                list.innerHTML = agents.map(agent => `
+                    <div class="agent-item" data-agent="${agent}" onclick="selectAgentByName('${agent.replace(/'/g, "\\'")}')">
+                        <div class="agent-status running"></div>
+                        <span>${agent}</span>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load agent list:', error);
+            }
+        }
+
+        // Load agent list on init
+        loadAgentList();
+        setInterval(loadAgentList, 5000);
+
+        // Periodically refresh analytics
+        setInterval(loadInitialData, 5000);
+
+        function selectAgentByName(agentName) {
+            switchView('agents');
+            document.querySelectorAll('.agent-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.agent === agentName);
+            });
+        }
+    </script>
+</body>
+</html>

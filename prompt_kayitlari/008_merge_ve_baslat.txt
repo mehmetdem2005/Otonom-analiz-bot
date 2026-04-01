@@ -1,0 +1,8 @@
+Tarih: 2026-04-01
+İstek: tamam merge et ve başlat
+
+Yapılanlar:
+- Dashboard ana girişe birleştirildi.
+- Eski arayüz /legacy altında korundu.
+- web_arayuzu.py syntax doğrulandı.
+- Sunucuyu yeniden başlatma ve endpoint doğrulama adımları uygulandı.

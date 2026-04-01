@@ -1,0 +1,10 @@
+Tarih: 2026-04-01
+İstek: başlat tuşu nerde diğer ekran nerde herşey nerde çalışıyor yazıyor ama loglar akmıyor,biryere mi takıldı yoksa çalışmıyor mu
+
+Yapılan düzeltmeler:
+- Dashboard header içine Başlat ve Durdur butonları eklendi.
+- WebSocket istemcisi hem `tip/veri` hem `type` formatını okuyacak şekilde düzeltildi.
+- `/baslat` endpoint'i doğru LLM seçimiyle Orkestra başlatacak şekilde düzeltildi.
+- Chat akışı Anthropic'e sabit olmaktan çıkarılıp ortak llm_istemci üzerinden çalışacak hale getirildi.
+- `/api/logs/recent` endpoint'i eklenerek canlı log polling sağlandı.
+- `/api/analytics` gerçek dosya sayaçlarıyla güncellendi.
