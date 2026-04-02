@@ -1,0 +1,20 @@
+SELF-TRAINING LOOP — DURUM
+Güncelleme: 2026-04-02
+
+GENEL DURUM: PLANLANMIŞ — Mevcut plan bittikten sonra başlanacak
+
+MODÜLLER
+❌ training_data_builder.py   (henüz başlanmadı)
+❌ model_trainer.py bağlantısı (iskelet var, gerçek bağlantı yok)
+❌ model_evaluator.py eklenti  (model karşılaştırma eksik)
+❌ model_promoter.py           (henüz başlanmadı)
+❌ self_edit_loop.py           (henüz başlanmadı)
+❌ orkestrasyon / scheduler    (henüz başlanmadı)
+❌ dashboard paneli            (henüz başlanmadı)
+
+HAZIR ALTYAPI (kullanılacak)
+✅ memory_store.py
+✅ quality_evaluator.py
+✅ llm_istemci.py (local provider)
+✅ dream_consolidator.py
+✅ agent_core.py

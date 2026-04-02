@@ -1,0 +1,146 @@
+SELF-TRAINING LOOP — MİMARİ PLANI
+Tarih: 2026-04-02
+Durum: PLANLANMIŞ (henüz başlanmadı)
+Öncelik: Mevcut plan bittikten sonra
+
+────────────────────────────────────────────────────────────
+NE YAPACAĞIZ? (Sade dil)
+────────────────────────────────────────────────────────────
+Ajan şu an her görevi çözerken internetteki büyük modellere
+(Groq, Anthropic) soruyor. Hedef: ajan kendi geçmiş
+deneyimlerinden öğrenip zamanla bu büyük modellere
+bağımlılığını azaltsın. Kendi kendini eğitsin.
+
+Tıpkı şöyle: Bir çırak ustasına sürekli soru soruyor.
+Ama zamanla kendi tecrübesi birikince artık her şeyi
+ustaya sormak zorunda kalmıyor. Kendisi hallediyor.
+
+────────────────────────────────────────────────────────────
+DÖNGÜ AKIŞI (4 Adım, tekrar eden)
+────────────────────────────────────────────────────────────
+
+  [1. VERİ TOPLA]
+       ↓
+  Ajan her görevi çözdükçe hafızaya yazıyor (zaten yapılıyor ✅)
+  İyi çözümler: test geçti + rollback olmadı
+  Kötü çözümler: test patladı / geri alındı
+       ↓
+  [2. VERİ HAZIRLA]
+       ↓
+  İyi örnekleri al → "soru + doğru cevap" formatına çevir
+  Kötü örnekleri at (ya da "yapma" örneği olarak ekle)
+  Sonuç: eğitim veri seti (.jsonl dosyası)
+       ↓
+  [3. MODELİ EĞİT (Fine-tune)]
+       ↓
+  Küçük yerel model (3B-7B parametre) bu veri setiyle güncellenir
+  Araç: Unsloth / llama.cpp / Ollama fine-tune (hafif, CPU'da bile çalışır)
+  Süre: binlerce örnekte birkaç dakika
+       ↓
+  [4. SINAV VER (Değerlendir)]
+       ↓
+  Yeni model vs eski model: test setinde karşılaştır
+  Yeni daha iyiyse → Terfi et (yeni model devreye girer)
+  Yeni daha kötüyse → Geri al (eski model çalışmaya devam eder)
+       ↓
+  Döngü başa döner → yeni deneyimler birikirken tekrar
+
+────────────────────────────────────────────────────────────
+MODÜLLER (Ne yazacağız)
+────────────────────────────────────────────────────────────
+
+MODÜL-1: training_data_builder.py
+  - Görevi: hafıza + trace loglarından eğitim verisi üret
+  - Giriş: memory_store.jsonl + trace/*.jsonl
+  - Çıkış: training_data/YYYYMMDD_dataset.jsonl
+  - Format: {"prompt": "...", "completion": "...", "quality": 0-1}
+  - Filtreler:
+      * Sadece test geçen örnekler (returncode=0)
+      * Rollback olmayan çözümler
+      * Minimum kalite skoru eşiği (ayarlanabilir)
+  - Durum: YAPILMADI
+
+MODÜL-2: model_trainer.py (iskelet var ✅, bağlantı yok)
+  - Görevi: eğitim verisini alıp yerel modeli fine-tune et
+  - Araç: Unsloth (hızlı) veya transformers (standart)
+  - Çıkış: models/fine_tuned/v{N}/
+  - Checkpoint: her N adımda ara kayıt
+  - Durum: iskelet var, gerçek eğitim bağlantısı YOK
+
+MODÜL-3: model_evaluator.py (kısmen var ✅)
+  - Görevi: yeni modeli test setinde dene, skor üret
+  - Karşılaştır: yeni_skor vs mevcut_skor
+  - Karar: promote / hold / rollback
+  - Bağlantı: quality_evaluator.py ile entegre olacak
+  - Durum: kalite değerlendirme var, model karşılaştırma YOK
+
+MODÜL-4: model_promoter.py
+  - Görevi: sınav geçen modeli "aktif model" olarak ata
+  - İşlem: LOCAL_LLM_MODEL env değişkenini güncelle
+           Ollama'ya yeni modeli yükle (ollama pull/push)
+  - Geri alma: eski model hep yedekte bekler
+  - Durum: YAPILMADI
+
+MODÜL-5: self_edit_loop.py
+  - Görevi: ajan kendi planını (plan_ve_durum_listesi.txt) okuyup
+            tamamlananları işaretleyip yeni görevler ekleyebilsin
+  - Bu "meta-öğrenme": ajan sadece kod değil, kendi yol haritasını da yazıyor
+  - Tetik: her başarılı görev sonrası
+  - Durum: YAPILMADI
+
+────────────────────────────────────────────────────────────
+BAĞIMLILIKLAR (Önce bunlar hazır olmalı)
+────────────────────────────────────────────────────────────
+
+✅ memory_store.py         → eğitim ham verisi burada
+✅ quality_evaluator.py    → kalite skoru burada
+✅ llm_istemci.py (local)  → yerel modeli çağırmak için
+✅ dream_consolidator.py   → temizlenmiş hafıza verisi
+✅ agent_core.py           → ajan döngüsü
+❌ training_data_builder.py → YAPILACAK
+❌ model_trainer.py bağlantısı → YAPILACAK
+❌ model_promoter.py       → YAPILACAK
+❌ self_edit_loop.py       → YAPILACAK
+
+────────────────────────────────────────────────────────────
+GEREKLİ ARAÇLAR (Kurulum)
+────────────────────────────────────────────────────────────
+
+Hafif seçenek (tavsiye edilir):
+  pip install unsloth          # Hızlı fine-tune (az VRAM)
+  pip install transformers     # Model altyapısı
+  pip install datasets         # Veri seti işleme
+  Ollama                       # Yerel model çalıştırma (zaten var)
+
+Ağır seçenek (gelecekte):
+  FAISS                        # Vektör arama hızlandırma
+  vllm                         # Yüksek hızlı inference
+
+────────────────────────────────────────────────────────────
+KABUL KRİTERLERİ (Nasıl anlarız bitti)
+────────────────────────────────────────────────────────────
+
+1. Ajan 50 başarılı görev çözdü → otomatik eğitim verisi oluştu
+2. Yerel model bu veriyle güncellendi (fine-tune tamamlandı)
+3. Yeni model test setinde eski modelden %5+ daha iyi skor aldı
+4. Terfi gerçekleşti → ajan artık yeni modeli kullanıyor
+5. API bağımlılık oranı %100'den %30'a düştü (yerel model devreye girdi)
+6. Döngü otomatik tekrarlıyor (insan müdahalesi sıfır)
+
+────────────────────────────────────────────────────────────
+YAPILMA SIRASI
+────────────────────────────────────────────────────────────
+
+1. training_data_builder.py + testler
+2. model_evaluator.py genişletme (model karşılaştırma)
+3. model_trainer.py gerçek bağlantı
+4. model_promoter.py
+5. self_edit_loop.py
+6. Hepsini birbirine bağlayan orkestrasyon (scheduler ile)
+7. Dashboard'a "öğrenme durumu" paneli
+
+────────────────────────────────────────────────────────────
+NOT
+────────────────────────────────────────────────────────────
+Bu plan mevcut plan_ve_durum_listesi.txt'deki tüm ❌ maddeler
+tamamlandıktan SONRA ele alınacak. Şu an sadece not ve mimari.
