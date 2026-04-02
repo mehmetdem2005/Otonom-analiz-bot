@@ -1070,4 +1070,19 @@ EK GUNCELLEME-66 (2026-04-02)
 	- test_dream_consolidate_tool_registered_and_runs
 ✅ Regresyon dogrulamasi:
 	- tum test suitlari = 118/118 PASS
-❌ ADIM-5 API bagimsiz yerel birincil mod (sirada)
+EK GUNCELLEME-67 (2026-04-02)
+✅ ADIM-5 tamamlandı: API-bağımsız yerel birincil mod
+✅ llm_istemci.py genisletildi:
+	- Yeni env ayarlari: LOCAL_LLM_URL, LOCAL_LLM_MODEL, LOCAL_LLM_TIMEOUT
+	- _local_llm_hazir(url, timeout): Ollama sunucu health check
+	- _local_chat_raw(...): Ollama native + OpenAI-uyumlu format desteği
+	- local_istek_sayisi(): yerel model istek sayacı
+	- api_bagimlilik_orani(): yerel/(yerel+api) oran metrigi
+	- etkin_baglanti(): LLM_PROVIDER=local ve LLM_PROVIDER=auto desteği
+	- metin_uret(): local provider -> doğrudan yerel; auto -> yerel dene -> Anthropic -> Groq
+	- llm_hazir_mi(): LLM_PROVIDER=local/auto durumunda API anahtarı gerekmez
+✅ web_arayuzu.py genisletildi:
+	- GET /api/llm/status: sağlayıcı, yerel LLM sağlık, API bağımlılık oranı
+✅ Yeni test dosyasi: tests/test_llm_istemci.py (12 test)
+✅ Regresyon dogrulamasi:
+	- tum test suitlari = 130/130 PASS

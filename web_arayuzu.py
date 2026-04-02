@@ -499,6 +499,43 @@ async def get_trace_summary(lines: int = 500):
         return {"error": str(e)}
 
 
+@app.get("/api/llm/status")
+async def get_llm_status():
+    """LLM sağlayıcı durumu, API bağımlılık oranı ve yerel LLM sağlık kontrolü."""
+    try:
+        import llm_istemci as llm
+
+        provider_env = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+        local_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")
+        local_model = os.getenv("LOCAL_LLM_MODEL", "llama3.2:3b")
+
+        local_ok = await llm._local_llm_hazir(url=local_url, timeout=2.0)
+
+        try:
+            active = llm.etkin_baglanti()
+            active_provider = active[0]
+        except Exception:
+            active_provider = "unavailable"
+
+        return {
+            "provider_env": provider_env,
+            "active_provider": active_provider,
+            "local_llm": {
+                "url": local_url,
+                "model": local_model,
+                "available": local_ok,
+            },
+            "requests": {
+                "total_api": llm.llm_istek_sayisi(),
+                "total_local": llm.local_istek_sayisi(),
+                "api_dependency_ratio": round(llm.api_bagimlilik_orani(), 4),
+            },
+            "ready": llm.llm_hazir_mi(),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/api/memory/recent")
 async def get_memory_recent(limit: int = 30):
     """Agent hafıza kayıtlarının son N satırını döndürür."""

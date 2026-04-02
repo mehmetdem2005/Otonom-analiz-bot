@@ -1,7 +1,13 @@
 """
 LLM İstemcisi
-- Anthropic ve Groq arasında anahtar durumuna göre geçiş yapar.
-- Varsayılan öncelik: LLM_PROVIDER belirtilmediyse Anthropic -> Groq.
+- Yerel LLM (Ollama/OpenAI-uyumlu), Anthropic ve Groq sağlayıcıları.
+- Varsayılan öncelik (auto): yerel → Anthropic → Groq.
+- LLM_PROVIDER=local → yalnızca yerel; local → fallback zinciri.
+
+Yerel LLM env ayarları:
+  LOCAL_LLM_URL   : sunucu adresi (varsayılan: http://localhost:11434)
+  LOCAL_LLM_MODEL : model adı     (varsayılan: llama3.2:3b)
+  LOCAL_LLM_TIMEOUT: istek zaman aşımı sn (varsayılan: 60)
 """
 
 import os
@@ -13,6 +19,7 @@ from typing import Tuple
 import httpx
 
 
+# ---- Groq ayarları ----
 _GROQ_CONCURRENCY = int(os.getenv("GROQ_CONCURRENCY", "1"))
 _GROQ_MIN_INTERVAL_SEC = float(os.getenv("GROQ_MIN_INTERVAL_SEC", "0.5"))
 _GROQ_MAX_RETRY = int(os.getenv("GROQ_MAX_RETRY", "30"))
@@ -28,6 +35,14 @@ _groq_sem = asyncio.Semaphore(_GROQ_CONCURRENCY)
 _groq_ritim_kilit = asyncio.Lock()
 _groq_son_istek = 0.0
 _groq_dinamik_aralik = _GROQ_MIN_INTERVAL_SEC
+
+# ---- Yerel LLM ayarları ----
+_LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://localhost:11434").rstrip("/")
+_LOCAL_LLM_MODEL = os.getenv("LOCAL_LLM_MODEL", "llama3.2:3b")
+_LOCAL_LLM_TIMEOUT = float(os.getenv("LOCAL_LLM_TIMEOUT", "60"))
+
+# ---- Metrik sayaçları ----
+_local_istek_sayaci = 0
 _llm_istek_sayaci = 0
 _llm_deneme_sayaci = 0
 
@@ -40,6 +55,84 @@ def llm_istek_sayisi() -> int:
 def llm_deneme_sayisi() -> int:
     """Bu süreç boyunca başlatılan LLM API deneme sayısını döndürür."""
     return _llm_deneme_sayaci
+
+
+def local_istek_sayisi() -> int:
+    """Bu süreç boyunca yerel LLM'den karşılanan başarılı istek sayısını döndürür."""
+    return _local_istek_sayaci
+
+
+def api_bagimlilik_orani() -> float:
+    """Yerel LLM dışındaki API isteklerinin oranını döndürür (0.0 = tam yerel, 1.0 = tam API).
+
+    Toplam istek 0 ise 1.0 döner (henüz ölçüm yok → API bağımlı varsayım).
+    """
+    total = _llm_istek_sayaci + _local_istek_sayaci
+    if total == 0:
+        return 1.0
+    return _llm_istek_sayaci / total
+
+
+# ---------------------------------------------------------------------------
+# Yerel LLM (Ollama / OpenAI-uyumlu endpoint)
+# ---------------------------------------------------------------------------
+
+async def _local_llm_hazir(url: str | None = None, timeout: float = 3.0) -> bool:
+    """Yerel LLM sunucusunun çalışıp çalışmadığını kontrol eder (hızlı health check)."""
+    base = url or _LOCAL_LLM_URL
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as c:
+            r = await c.get(f"{base}/api/tags")
+            return r.status_code < 500
+    except Exception:
+        return False
+
+
+async def _local_chat_raw(
+    sistem: str,
+    kullanici: str,
+    *,
+    model: str | None = None,
+    url: str | None = None,
+    max_tokens: int = 2048,
+    timeout: float | None = None,
+) -> str:
+    """Yerel Ollama/OpenAI-uyumlu sunucuya chat isteği gönderir, metin yanıtı döndürür."""
+    base = url or _LOCAL_LLM_URL
+    mdl = model or _LOCAL_LLM_MODEL
+    tout = timeout if timeout is not None else _LOCAL_LLM_TIMEOUT
+
+    messages = []
+    if sistem:
+        messages.append({"role": "system", "content": sistem})
+    messages.append({"role": "user", "content": kullanici})
+
+    payload = {
+        "model": mdl,
+        "messages": messages,
+        "stream": False,
+        "options": {"num_predict": max_tokens},
+    }
+
+    async with httpx.AsyncClient(timeout=tout) as c:
+        r = await c.post(
+            f"{base}/api/chat",
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        r.raise_for_status()
+        data = r.json()
+
+    # Ollama native response format
+    if "message" in data:
+        return str(data["message"].get("content", ""))
+
+    # OpenAI-compatible fallback
+    choices = data.get("choices", [])
+    if choices:
+        return str(choices[0].get("message", {}).get("content", ""))
+
+    raise ValueError(f"Yerel LLM yanıtı tanınamadı: {list(data.keys())}")
 
 
 async def _groq_ritim_bekle() -> None:
@@ -184,10 +277,19 @@ async def _groq_cok_asamali_calis(
 
 
 def etkin_baglanti() -> Tuple[str, str, str]:
-    """(saglayici, api_key, model) döndürür."""
+    """(saglayici, api_key_or_url, model) döndürür.
+
+    Sağlayıcılar: "local" | "anthropic" | "groq"
+    Yerel modelde api_key yerine LOCAL_LLM_URL döner.
+    """
     provider_env = os.getenv("LLM_PROVIDER", "").strip().lower()
     anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
     groq_key = os.getenv("GROQ_API_KEY", "").strip()
+    local_url = _LOCAL_LLM_URL
+    local_model = _LOCAL_LLM_MODEL
+
+    if provider_env == "local":
+        return "local", local_url, local_model
 
     if provider_env == "anthropic":
         if anthropic_key:
@@ -203,16 +305,24 @@ def etkin_baglanti() -> Tuple[str, str, str]:
             return "anthropic", anthropic_key, os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
         raise RuntimeError("LLM_PROVIDER=groq ama GROQ_API_KEY yok")
 
-    # Otomatik seçim: önce Anthropic, sonra Groq
+    # auto: önce yerel (eğer LOCAL_LLM_URL tanımlıysa runtime'da dene), sonra Anthropic, sonra Groq
+    if provider_env == "auto":
+        return "auto", local_url, local_model
+
+    # Varsayılan: önce Anthropic, sonra Groq
     if anthropic_key:
         return "anthropic", anthropic_key, os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
     if groq_key:
         return "groq", groq_key, os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
-    raise RuntimeError("Geçerli LLM anahtarı bulunamadı (ANTHROPIC_API_KEY veya GROQ_API_KEY)")
+    raise RuntimeError("Geçerli LLM anahtarı bulunamadı (ANTHROPIC_API_KEY, GROQ_API_KEY veya LLM_PROVIDER=local)")
 
 
 def llm_hazir_mi() -> bool:
+    """Herhangi bir sağlayıcı kullanılabilir mi? (yerel de dahil)."""
+    provider_env = os.getenv("LLM_PROVIDER", "").strip().lower()
+    if provider_env in ("local", "auto"):
+        return True  # Yerel sunucu runtime'da kontrol edilir
     return bool(os.getenv("ANTHROPIC_API_KEY", "").strip() or os.getenv("GROQ_API_KEY", "").strip())
 
 
@@ -226,12 +336,43 @@ async def metin_uret(
     model: str | None = None,
 ) -> str:
     """Sistem + kullanıcı mesajından tek bir metin yanıtı üretir."""
-    global _llm_istek_sayaci, _llm_deneme_sayaci
+    global _llm_istek_sayaci, _llm_deneme_sayaci, _local_istek_sayaci
     if not saglayici or not api_key or not model:
         secilen = etkin_baglanti()
         saglayici = saglayici or secilen[0]
         api_key = api_key or secilen[1]
         model = model or secilen[2]
+
+    # Yerel LLM – doğrudan
+    if saglayici == "local":
+        _llm_deneme_sayaci += 1
+        yanit = await _local_chat_raw(sistem, kullanici, model=model, url=api_key, max_tokens=max_tokens)
+        _local_istek_sayaci += 1
+        return yanit
+
+    # Auto mod – yerel dene, başarısız olursa cloud fallback
+    if saglayici == "auto":
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        local_ok = await _local_llm_hazir(url=api_key)
+        if local_ok:
+            try:
+                _llm_deneme_sayaci += 1
+                yanit = await _local_chat_raw(sistem, kullanici, model=model, url=api_key, max_tokens=max_tokens)
+                _local_istek_sayaci += 1
+                return yanit
+            except Exception:
+                pass  # Yerel başarısız → cloud fallback
+        # Cloud fallback sırası: Anthropic → Groq
+        if anthropic_key:
+            return await metin_uret(sistem, kullanici, max_tokens=max_tokens,
+                                    saglayici="anthropic", api_key=anthropic_key,
+                                    model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"))
+        if groq_key:
+            return await metin_uret(sistem, kullanici, max_tokens=max_tokens,
+                                    saglayici="groq", api_key=groq_key,
+                                    model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"))
+        raise RuntimeError("auto modunda yerel sunucu erişilemez ve cloud API anahtarı yok")
 
     if saglayici == "anthropic":
         import anthropic
