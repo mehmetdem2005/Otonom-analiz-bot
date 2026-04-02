@@ -1005,3 +1005,17 @@ EK GUNCELLEME-64 (2026-04-02)
 	- 20/20 regresyon PASS
 	- Front-end: Risk Tanı panel + simulator + presets + geçmiş karşılaştıksa + mini trend + detay modal + tarih filtre + threshold highlight
 	- Back-end: sync telemetri + trend scoring + EWMA + anomaly + drift + source weighting + autotune + recency bias + latency regime + risk confidence + explainability tree + snapshot persist
+	- Git commit: f8ce76c (2026-04-02)
+
+ADIM-2 ARAC SISTEMI VE GUVENLIK (2026-04-02 BASLANGIC)
+✅ Tool registry gen isletildi
+✅ ToolRiskLevel enum eklendi (LOW/MEDIUM/HIGH/CRITICAL)
+✅ ToolDefinition genişletildi: timeout, retry, path allowlist, command blocklist
+✅ ToolRegistry.can_execute() eklendi - runtime policy integration
+✅ ToolRegistry.audit_execution() eklendi - security audit trail
+✅ DEV_PLAN_MASTER_/02_TOOLS_SECURITY/STATUS.txt oluşturuldu
+✅ Regresyon: 101/101 PASS
+❌ React_tools.py araçlarını registry'ye migrate et
+❌ Path/command validation runtime enforcement
+❌ Paralel executor (task queue + worker pool)
+❌ Tool error handling + LLM feedback loop

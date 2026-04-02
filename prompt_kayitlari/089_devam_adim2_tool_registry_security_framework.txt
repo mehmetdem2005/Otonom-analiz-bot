@@ -1,0 +1,29 @@
+[KULLANICI PROMPT OZETI]
+- "devam et" komutu: FAZ-4 tamamlandı, ADIM-2'ye başla
+- Tool registry genişletme: risk levels, security controls, runtime policy integration
+- Plan dosyasını ADIM-2 başlangıcı olarak güncelleş
+
+[YAPILANLAR]
+- tool_registry.py genişletildi (ADIM-2 başlangıcı):
+  - ToolRiskLevel enum eklendi: LOW | MEDIUM | HIGH | CRITICAL
+  - ToolDefinition'a security fields eklendi:
+    - timeout_sec
+    - max_retries
+    - allowed_paths (path allowlist, repo-only default)
+    - blocked_commands (dangerous command blocklist)
+  - ToolRegistry'ye can_execute() eklendi:
+    - runtime_mode'a göre policy: rollback_protect (LOW only), hold_cautious (no CRITICAL), promote_normal (all)
+  - audit_execution() eklendi: security audit trail
+- DEV_PLAN_MASTER_/02_TOOLS_SECURITY/STATUS.txt oluşturuldu
+- plan_ve_durum_listesi.txt güncellendi:
+  - FAZ-4 git commit referansı eklendi
+  - ADIM-2 başlangıcı açık maddeleri listelendi
+
+[TEST]
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q
+- Sonuc: 101/101 PASS
+
+[SONRAKI]
+- ADIM-2 devamı: mevcut react_tools araçlarını registry'ye migrate et
+- Path/command validation runtime'da enforce et
+- Paralel execution executor başlat

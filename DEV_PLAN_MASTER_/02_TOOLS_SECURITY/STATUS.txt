@@ -1,0 +1,31 @@
+BOLUM 2 - ARAC SISTEMI VE GUVENLIK
+STATUS (2026-04-02)
+
+DURUM: BASLANGIC - Hazir
+
+BASLANGIC KONTROL LISTESI
+❌ Tool registry singleton ile mevcut araclari enumerate
+❌ Schema validation için Pydantic model'ler olustur
+❌ Risk sinifi enum: LOW | MEDIUM | HIGH | CRITICAL
+❌ Path allowlist yapisi (repo root sinirliligi)
+❌ Command allowlist yapisi (exec bloklist)
+❌ Runtime limitleri icin decorator
+❌ Sandbox klasoru structure
+❌ Paralel executor icin task queue + worker pool baslangici
+❌ Tool error handling + retry logic
+
+ILGILI DOSYALAR
+- react_tools.py (mevcut araclar)
+- agent_core.py (tool runtime entegrasyonu)
+- web_arayuzu.py API endpoints
+
+HEDEF TEST HEDIFI
+- Tool registry 100% coverage
+- Security policies blocklist dogrulama
+- Paralel izolasyonu (data race yok)
+- Timeout+sandbox testi
+- Baseline: 10 yeni unit test geçmesi
+
+ONCEKI FAZ
+- FAZ-4 Risk Tanı (EK-45..EK-64): TAMAMLANDI
+- Git commit: f8ce76c
