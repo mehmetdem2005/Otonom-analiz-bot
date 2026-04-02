@@ -844,6 +844,17 @@
                                 <button class="btn btn-secondary" onclick="loadMemorySearch()">Ara</button>
                             </div>
                             <div id="memorySearchView" class="log-viewer" style="font-size:12px;max-height:170px;"></div>
+                            <!-- Grafikler -->
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;">
+                                    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px;">Path Bazında Aktivite (Top 10)</div>
+                                    <canvas id="memoryBarChart" height="160"></canvas>
+                                </div>
+                                <div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px;">
+                                    <div style="font-size:11px;color:#94a3b8;font-weight:700;margin-bottom:6px;">Son 30 Gün Kayıt Zaman Serisi</div>
+                                    <canvas id="memoryTimeseriesChart" height="160"></canvas>
+                                </div>
+                            </div>
                             <div id="memoryView" class="log-viewer" style="font-size:12px;"></div>
                         </div>
                     </div>
@@ -1461,6 +1472,100 @@
             }
         }
 
+        // --- Mini canvas chart helpers (no library needed) ---
+        function _drawBarChart(canvas, labels, values, colors) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth || 320;
+            const H = canvas.height = parseInt(canvas.getAttribute('height')) || 160;
+            ctx.clearRect(0, 0, W, H);
+            if (!values.length) {
+                ctx.fillStyle = '#94a3b8'; ctx.font = '11px monospace';
+                ctx.fillText('Veri yok', W / 2 - 20, H / 2); return;
+            }
+            const maxV = Math.max(...values, 1);
+            const padL = 6, padR = 6, padT = 10, padB = 24;
+            const bW = (W - padL - padR) / values.length;
+            values.forEach((v, i) => {
+                const bH = Math.round((v / maxV) * (H - padT - padB));
+                const x = padL + i * bW + bW * 0.1;
+                const w = bW * 0.8;
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillRect(x, H - padB - bH, w, bH);
+                ctx.fillStyle = '#cbd5e1'; ctx.font = '9px monospace';
+                ctx.fillText(v, x + w / 2 - 4, H - padB - bH - 2);
+                const lbl = (labels[i] || '').slice(-6);
+                ctx.fillStyle = '#64748b'; ctx.font = '8px monospace';
+                ctx.fillText(lbl, x, H - padB + 10);
+            });
+        }
+        function _drawLineChart(canvas, labels, datasets) {
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width = canvas.offsetWidth || 320;
+            const H = canvas.height = parseInt(canvas.getAttribute('height')) || 160;
+            ctx.clearRect(0, 0, W, H);
+            const allVals = datasets.flatMap(d => d.data);
+            if (!allVals.length) {
+                ctx.fillStyle = '#94a3b8'; ctx.font = '11px monospace';
+                ctx.fillText('Veri yok', W / 2 - 20, H / 2); return;
+            }
+            const maxV = Math.max(...allVals, 1);
+            const padL = 22, padR = 6, padT = 10, padB = 24;
+            const n = labels.length;
+            const xStep = (W - padL - padR) / Math.max(n - 1, 1);
+            // grid lines
+            [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+                const y = padT + (1 - f) * (H - padT - padB);
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+                ctx.fillStyle = '#475569'; ctx.font = '8px monospace';
+                ctx.fillText(Math.round(f * maxV), 0, y + 3);
+            });
+            datasets.forEach(ds => {
+                ctx.strokeStyle = ds.color; ctx.lineWidth = 2;
+                ctx.beginPath();
+                ds.data.forEach((v, i) => {
+                    const x = padL + i * xStep;
+                    const y = padT + (1 - v / maxV) * (H - padT - padB);
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            });
+            // x labels (every ~5)
+            const step = Math.max(1, Math.floor(n / 6));
+            labels.forEach((lbl, i) => {
+                if (i % step !== 0 && i !== n - 1) return;
+                const x = padL + i * xStep;
+                ctx.fillStyle = '#64748b'; ctx.font = '8px monospace';
+                ctx.fillText((lbl || '').slice(5), x - 8, H - padB + 12);
+            });
+        }
+        async function _renderMemoryCharts(stats) {
+            // Bar chart: top 10 paths by attempts
+            const barCanvas = document.getElementById('memoryBarChart');
+            if (barCanvas && stats.by_path) {
+                const entries = Object.entries(stats.by_path)
+                    .map(([p, v]) => ({ label: p.split('/').pop() || p, attempts: v.attempts || 0, successes: v.successes || 0 }))
+                    .sort((a, b) => b.attempts - a.attempts).slice(0, 10);
+                _drawBarChart(barCanvas, entries.map(e => e.label), entries.map(e => e.attempts),
+                    entries.map(e => e.successes / Math.max(e.attempts, 1) > 0.7 ? '#22c55e' : '#f59e0b'));
+            }
+            // Time series
+            const tsCanvas = document.getElementById('memoryTimeseriesChart');
+            if (tsCanvas) {
+                try {
+                    const resp = await fetch('/api/memory/timeseries?days=30');
+                    const ts = await resp.json();
+                    const series = ts.series || [];
+                    _drawLineChart(tsCanvas, series.map(s => s.day),
+                        [
+                            { data: series.map(s => s.total), color: '#60a5fa' },
+                            { data: series.map(s => s.success), color: '#22c55e' },
+                            { data: series.map(s => s.rollback), color: '#f87171' },
+                        ]);
+                } catch (e) { /* ignore */ }
+            }
+        }
+
         async function loadMemoryView() {
             try {
                 const [recResp, statsResp] = await Promise.all([
@@ -1476,6 +1581,8 @@
                 setEl('msFixAttempts', stats.fix_attempts ?? '—');
                 setEl('msRollbacks', stats.rollbacks ?? '—');
                 setEl('msSuccessRate', stats.overall_success_rate != null ? (stats.overall_success_rate * 100).toFixed(1) + '%' : '—');
+
+                await _renderMemoryCharts(stats);
 
                 const elem = document.getElementById('memoryView');
                 if (!elem) return;

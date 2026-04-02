@@ -428,3 +428,151 @@ async def metin_uret(
         raise RuntimeError(f"Groq isteği başarısız (yeniden deneme limiti aşıldı): {son_hata}")
 
     raise RuntimeError(f"Desteklenmeyen sağlayıcı: {saglayici}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STREAMING — çok turlu sohbet için token-by-token async generator
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def stream_chat(
+    messages: list[dict],
+    sistem: str = "",
+    *,
+    saglayici: str | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
+    max_tokens: int = 2048,
+):
+    """Çok turlu sohbet için token-by-token string parçaları yield eder.
+
+    messages: [{"role": "user"|"assistant", "content": str}, ...]
+    Döndürür: AsyncGenerator[str, None] — her yield bir token parçası.
+    """
+    global _local_istek_sayaci, _llm_istek_sayaci
+
+    if not saglayici or not api_key or not model:
+        secilen = etkin_baglanti()
+        saglayici = saglayici or secilen[0]
+        api_key = api_key or secilen[1]
+        model = model or secilen[2]
+
+    # ── Auto mod: önce yerel dene ──
+    if saglayici == "auto":
+        local_ok = await _local_llm_hazir(url=api_key)
+        if local_ok:
+            try:
+                async for token in _stream_local(messages, sistem, model=model, url=api_key, max_tokens=max_tokens):
+                    yield token
+                _local_istek_sayaci += 1
+                return
+            except Exception:
+                pass
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+        groq_key = os.getenv("GROQ_API_KEY", "").strip()
+        if anthropic_key:
+            async for token in stream_chat(messages, sistem, saglayici="anthropic",
+                                           api_key=anthropic_key,
+                                           model=os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+                                           max_tokens=max_tokens):
+                yield token
+            return
+        if groq_key:
+            async for token in stream_chat(messages, sistem, saglayici="groq",
+                                           api_key=groq_key,
+                                           model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
+                                           max_tokens=max_tokens):
+                yield token
+            return
+        raise RuntimeError("auto modunda yerel sunucu erişilemez ve cloud API anahtarı yok")
+
+    # ── Yerel (Ollama) ──
+    if saglayici == "local":
+        async for token in _stream_local(messages, sistem, model=model, url=api_key, max_tokens=max_tokens):
+            yield token
+        _local_istek_sayaci += 1
+        return
+
+    # ── Anthropic ──
+    if saglayici == "anthropic":
+        import anthropic as _ant
+        client = _ant.AsyncAnthropic(api_key=api_key)
+        async with client.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            system=sistem,
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+        _llm_istek_sayaci += 1
+        return
+
+    # ── Groq (OpenAI-uyumlu SSE) ──
+    if saglayici == "groq":
+        await _groq_ritim_bekle()
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        hdrs = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        body: list[dict] = []
+        if sistem:
+            body.append({"role": "system", "content": sistem})
+        body.extend(messages)
+        payload = {"model": model, "messages": body, "max_tokens": max_tokens,
+                   "temperature": 0.3, "stream": True}
+        async with httpx.AsyncClient(timeout=120) as c:
+            async with c.stream("POST", url, headers=hdrs, json=payload) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    raw = line[5:].strip()
+                    if raw == "[DONE]":
+                        break
+                    try:
+                        chunk = __import__("json").loads(raw)
+                        delta = chunk["choices"][0]["delta"].get("content", "")
+                        if delta:
+                            yield delta
+                    except Exception:
+                        continue
+        await _groq_geri_bildirim(True)
+        _llm_istek_sayaci += 1
+        return
+
+    raise RuntimeError(f"Desteklenmeyen sağlayıcı: {saglayici}")
+
+
+async def _stream_local(
+    messages: list[dict],
+    sistem: str,
+    *,
+    model: str,
+    url: str,
+    max_tokens: int,
+):
+    """Ollama'dan token-by-token NDJSON stream okur."""
+    import json as _json
+    mdl = model or _LOCAL_LLM_MODEL
+    base = url or _LOCAL_LLM_URL
+    body: list[dict] = []
+    if sistem:
+        body.append({"role": "system", "content": sistem})
+    body.extend(messages)
+    payload = {"model": mdl, "messages": body, "stream": True,
+               "options": {"num_predict": max_tokens}}
+    async with httpx.AsyncClient(timeout=_LOCAL_LLM_TIMEOUT) as c:
+        async with c.stream("POST", f"{base}/api/chat",
+                            json=payload,
+                            headers={"Content-Type": "application/json"}) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line.strip():
+                    continue
+                try:
+                    chunk = _json.loads(line)
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        yield token
+                    if chunk.get("done"):
+                        break
+                except Exception:
+                    continue

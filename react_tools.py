@@ -478,4 +478,39 @@ def build_default_registry(base_dir: Path | str = ".", memory_store: MemoryStore
             risk_level="medium",
         )
     )
+    reg.register(
+        ToolDefinition(
+            name="plan_guncelle",
+            description="Ajan kendi görev planını (plan_ve_durum_listesi.txt) okur ve tamamlanan maddeleri ✅ ile işaretler ya da yeni görev ekler. args: {\"objective\": str (mevcut hedefe göre otomatik işaretle), \"mark_done\": str (tam metin ara/işaretle), \"add_task\": str (yeni görev metni), \"section\": str (opsiyonel bölüm adı)}",
+            execute=_make_plan_guncelle(),
+            risk_level="medium",
+        )
+    )
     return reg
+
+
+def _make_plan_guncelle():
+    async def _tool_plan_guncelle(args: dict) -> dict:
+        try:
+            import self_edit_loop as sel
+            results: dict = {"actions": []}
+            if args.get("objective"):
+                r = await sel.run_self_edit(args["objective"])
+                results["auto_marked"] = r.get("marked", [])
+                results["summary"] = r.get("summary", {})
+                results["actions"].append("auto_mark")
+            if args.get("mark_done"):
+                ok = sel.mark_done(args["mark_done"])
+                results["mark_done"] = {"text": args["mark_done"], "success": ok}
+                results["actions"].append("mark_done")
+            if args.get("add_task"):
+                ok = sel.add_task(args["add_task"], section=args.get("section"))
+                results["add_task"] = {"text": args["add_task"], "success": ok}
+                results["actions"].append("add_task")
+            if not results["actions"]:
+                results["summary"] = sel.get_summary()
+                results["pending"] = sel.get_pending()
+            return results
+        except Exception as e:
+            return {"error": str(e)}
+    return _tool_plan_guncelle
