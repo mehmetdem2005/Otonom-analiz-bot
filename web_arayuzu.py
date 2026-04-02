@@ -707,6 +707,65 @@ async def trigger_memory_dream(
         return {"ran": False, "reason": f"exception:{e}", "result": None}
 
 
+@app.get("/api/plan/summary")
+async def get_plan_summary():
+    """Plan dosyasının özeti: toplam, tamamlanan, bekleyen madde sayısı."""
+    try:
+        import self_edit_loop as sel
+        return sel.get_summary()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/plan/pending")
+async def get_plan_pending():
+    """Bekleyen (❌) plan maddelerini listeler."""
+    try:
+        import self_edit_loop as sel
+        return {"pending": sel.get_pending()}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/plan/mark-done")
+async def plan_mark_done(text: str):
+    """Verilen metni içeren ❌ maddeyi ✅ olarak işaretler."""
+    try:
+        import self_edit_loop as sel
+        ok = sel.mark_done(text)
+        return {"success": ok, "text": text}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/memory/timeseries")
+async def get_memory_timeseries(days: int = 30):
+    """Son N gün için gün bazında hafıza kayıt sayısı zaman serisi döndürür."""
+    try:
+        import time as _time
+        from memory_store import MemoryStore
+        ms = MemoryStore()
+        recs = ms.load_all()
+        now = _time.time()
+        cutoff = now - days * 86400
+        buckets: dict[str, dict] = {}
+        for r in recs:
+            if not r.ts or r.ts < cutoff:
+                continue
+            day = __import__("datetime").datetime.utcfromtimestamp(r.ts).strftime("%Y-%m-%d")
+            if day not in buckets:
+                buckets[day] = {"day": day, "total": 0, "success": 0, "rollback": 0}
+            buckets[day]["total"] += 1
+            if r.kind == "fix_attempt" and r.outcome == "success":
+                buckets[day]["success"] += 1
+            elif r.kind == "rollback":
+                buckets[day]["rollback"] += 1
+        series = sorted(buckets.values(), key=lambda x: x["day"])
+        return {"days": days, "count": len(series), "series": series}
+    except Exception as e:
+        return {"error": str(e), "series": []}
+
+
 @app.get("/api/evaluator/summary")
 async def get_evaluator_summary(lines: int = 1000, days: float = 7.0):
     """Ajan kalitesini trace + hafiza sinyalleri ile ozetler."""

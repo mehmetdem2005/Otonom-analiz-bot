@@ -1,0 +1,20 @@
+06 — ÜRETİM YÜKSELTME — DURUM
+Güncelleme: 2026-04-02
+
+GENEL DURUM: PLANLANMIŞ — 05_DEPLOY_GOVERNANCE bittikten sonra başlanacak
+
+MODÜLLER
+❌ API-1   FastAPI üretim katmanı (request ID, rate limit, auth, Prometheus)
+❌ OPS-1   Docker Compose stack (agent + db + redis + monitoring)
+❌ DB-1    PostgreSQL geçişi (asyncpg + Alembic + adapter pattern)
+❌ DB-2    pgvector entegrasyonu (semantik hafıza kalıcı vektör index)
+❌ TOOL-1  Gerçek araç entegrasyonları (Docker sandbox, SerpAPI, OAuth 1.0a)
+❌ UI-1    WebSocket tabanlı gerçek zamanlı dashboard (Chart.js)
+
+HAZIR ALTYAPI (kullanılacak)
+✅ web_arayuzu.py        → FastAPI çekirdeği, genişletilecek
+✅ memory_store.py       → adapter pattern ile PG'ye geçilecek
+✅ tool_registry.py      → araç kayıt sistemi, gerçek impl. bağlanacak
+✅ action_executor.py    → güvenlik katmanı, Docker sandbox eklenecek
+✅ react_tools.py        → araçlar, SerpAPI/OAuth impl. bağlanacak
+✅ quality_evaluator.py  → metrikler Prometheus'a aktarılacak

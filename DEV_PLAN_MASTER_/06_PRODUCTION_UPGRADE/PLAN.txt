@@ -1,0 +1,229 @@
+06 — ÜRETİM YÜKSELTME MİMARİSİ
+Tarih: 2026-04-02
+Durum: PLANLANMIŞ
+Öncelik: 05_DEPLOY_GOVERNANCE tamamlandıktan sonra
+
+────────────────────────────────────────────────────────────
+NEDEN GEREKLİ?
+────────────────────────────────────────────────────────────
+
+Mevcut sistemin üretim için yetersiz olan yerleri:
+
+1. DEPOLAMA — Tüm veriler düz JSONL dosyalarında:
+   - Eşzamanlı yazma çakışması riski (fcntl lock kısmi çözüm)
+   - Büyük veri setlerinde tam yükleme (load_all) yavaş
+   - Gerçek sorgu/filtreleme yok (tümü Python'da)
+   - Yedekleme/replikasyon altyapısı yok
+
+2. ARAYÜZ — Polling tabanlı dashboard:
+   - Her 5s'de bir /api/* endpoint'leri çağrılıyor
+   - Gerçek zamanlı değil, gecikme var
+   - Mobil uyumlu değil
+   - Grafik kütüphanesi yok (canvas ile sıfırdan çiziliyor)
+
+3. ARAÇLAR — Bazı araçlar simülasyon modunda:
+   - X/Twitter yayını: gerçek OAuth 1.0a yok
+   - Web arama: gerçek SerpAPI/Tavily entegrasyonu eksik
+   - Kod çalıştırma: Docker sandbox yok, güvenlik riski
+   - Dosya sistemi: realpath kontrollü ama kum havuzu yok
+
+4. GÜVENİLİRLİK — Üretim için eksikler:
+   - Yapılandırılmış hata işleme yok (her yerde bare except)
+   - Request ID / correlation ID yok
+   - Rate limiting yok
+   - Health check endpoint'leri eksik
+   - Prometheus/Grafana metrik entegrasyonu yok
+
+────────────────────────────────────────────────────────────
+HEDEFLER
+────────────────────────────────────────────────────────────
+
+1. Güvenilir veri katmanı: PostgreSQL + asyncpg + Alembic
+2. Gerçek zamanlı dashboard: WebSocket tabanlı
+3. Gerçek araçlar: Docker sandbox + SerpAPI + gerçek OAuth
+4. Üretim API: request ID, rate limit, auth, Prometheus
+5. Dağıtım: Docker Compose stack, otomatik yedekleme
+6. Gözlemlenebilirlik: log agregasyonu + alert sistemi
+
+────────────────────────────────────────────────────────────
+BİLEŞENLER (6 Modül)
+────────────────────────────────────────────────────────────
+
+DB-1: SQLite → PostgreSQL Geçişi
+  Mevcut durum: JSONL dosyaları (memory/, log/, trace/)
+  Hedef: asyncpg + PostgreSQL 15+
+  Araçlar:
+    - asyncpg: async PostgreSQL sürücüsü
+    - Alembic: şema migration yönetimi
+    - SQLModel veya SQLAlchemy 2.0: ORM katmanı
+  Tablolar:
+    - memory_records (id, ts, kind, path, outcome, hint, embedding vector)
+    - trace_records (id, session_id, ts, event_type, payload jsonb)
+    - quality_snapshots (id, ts, metric_name, value, metadata jsonb)
+    - plan_items (id, text, status, section, created_at, updated_at)
+  Geçiş stratejisi:
+    1. JSONL okuyucuyu interface olarak soyutla (adapter pattern)
+    2. PostgreSQL adapter yaz, aynı interface uygula
+    3. Dual-write geçiş dönemi (JSONL + PG paralel)
+    4. JSONL'yi arşivle, PG'ye geç
+  Durum: YAPILMADI
+
+DB-2: Vektör İndeksi (Semantik Hafıza)
+  Mevcut durum: Python dict'te in-memory embedding (yavaş, geçici)
+  Hedef: pgvector (PostgreSQL eklentisi) veya FAISS kalıcı index
+  Seçenek A — pgvector (tavsiye edilir):
+    - PostgreSQL'e vector tip eklentisi
+    - CREATE INDEX USING ivfflat (embedding vector_cosine_ops)
+    - Sorgu: SELECT * FROM memory ORDER BY embedding <=> $1 LIMIT 10
+    - Avantaj: tek veritabanı, ACID garantisi, yedekleme basit
+  Seçenek B — FAISS:
+    - Disk'e kaydedilen FAISS IndexFlatIP
+    - Yüksek hacimde daha hızlı ANN araması
+    - Dezavantaj: PG ile senkronizasyon gerekli
+  Öneri: pgvector ile başla, ölçek gerektirirse FAISS'e geç
+  Durum: YAPILMADI
+
+API-1: FastAPI Üretim Katmanı
+  Mevcut durum: basit FastAPI, hata işleme minimal
+  Hedef: üretim kalitesi API
+  Eklenecekler:
+    - Request ID middleware (UUID, X-Request-ID header)
+    - Yapılandırılmış hata yanıtları (ErrorResponse model)
+    - Rate limiting (slowapi veya custom token bucket)
+    - JWT tabanlı kimlik doğrulama (dashboard + API)
+    - Prometheus metrikleri (prometheus-fastapi-instrumentator)
+    - /health ve /ready endpoint'leri (Kubernetes probe)
+    - OpenAPI dokümantasyonu otomatik (zaten var, geliştir)
+    - CORS yapılandırması (şu an açık)
+  Durum: YAPILMADI
+
+UI-1: Gerçek Zamanlı WebSocket Dashboard
+  Mevcut durum: polling (setInterval 5s), vanilla JS, canvas charts
+  Hedef: WebSocket + Chart.js
+  Mimari:
+    - FastAPI WebSocket endpoint: /ws/dashboard
+    - Server push: agent events, memory updates, risk scores
+    - Chart.js kütüphanesi (CDN) → gerçek interaktif grafikler
+    - Responsive tasarım (Tailwind CSS CDN)
+    - Dark/light mode toggle
+    - Gerçek zamanlı log stream (WebSocket üzerinden)
+  WebSocket protokolü:
+    {
+      "type": "memory_update" | "agent_event" | "risk_update" | "log",
+      "ts": float,
+      "data": {}
+    }
+  Durum: YAPILMADI
+
+TOOL-1: Gerçek Araç Entegrasyonları
+  Mevcut durum: bazı araçlar simülasyon veya sınırlı
+
+  Web Araması:
+    - SerpAPI veya Tavily API entegrasyonu
+    - Fallback: DuckDuckGo (ücretsiz, sınırlı)
+    - Sonuç önbellekleme (Redis veya bellek içi TTL cache)
+
+  Kod Çalıştırma Sandbox:
+    - Docker container'da izole çalıştırma
+    - CPU/memory/zaman limiti (--memory=256m --cpus=0.5)
+    - Ağ erişimi kapalı (--network=none)
+    - Geçici dosya sistemi (--tmpfs /tmp)
+    - Python executor: docker run --rm python:3.11-slim
+
+  Twitter/X OAuth 1.0a:
+    - tweepy kütüphanesi ile gerçek OAuth akışı
+    - Token yönetimi (güvenli .env, rotation)
+    - Rate limit farkındalığı (API v2 limitleri)
+
+  Dosya Sistemi:
+    - seccomp profili ile sistem çağrısı kısıtlama
+    - chroot jail veya bubblewrap sandbox
+
+  Durum: YAPILMADI
+
+OPS-1: Docker Compose + Gözlemlenebilirlik
+  Mevcut durum: tek process, manuel başlatma
+  Hedef: tam orkestrasyon
+
+  docker-compose.yml servisleri:
+    - agent: FastAPI ajan servisi (web_arayuzu.py)
+    - db: PostgreSQL 15 (volume ile kalıcı)
+    - redis: önbellekleme + rate limit state
+    - prometheus: metrik toplama
+    - grafana: dashboard görselleştirme
+    - loki: log agregasyonu
+    - promtail: log toplama ajanı
+
+  Yedekleme:
+    - pg_dump cron (günlük, S3 veya yerel)
+    - JSONL arşiv sıkıştırma (haftalık)
+
+  Health Checks:
+    - /health: servis canlı mı?
+    - /ready: DB bağlantısı var mı?
+    - Kubernetes liveness/readiness probe uyumlu
+
+  Alerting:
+    - Prometheus AlertManager kuralları
+    - Kritik eşikler: rollback_rate > 0.3, API latency > 5s
+
+  Durum: YAPILMADI
+
+────────────────────────────────────────────────────────────
+YAPILMA SIRASI
+────────────────────────────────────────────────────────────
+
+1. API-1 — FastAPI üretim katmanı (en az bağımlılık)
+   Neden önce: diğer tüm bileşenler bunu kullanıyor
+
+2. OPS-1 (kısmi) — Docker Compose temel stack
+   Sadece: agent + db + redis (monitoring sonraya bırak)
+
+3. DB-1 — PostgreSQL geçişi
+   Adapter pattern ile mevcut kodu kırmadan geç
+
+4. DB-2 — pgvector entegrasyonu
+   DB-1 tamamlandıktan sonra vektör sütunu ekle
+
+5. TOOL-1 — Gerçek araç entegrasyonları
+   Her araç ayrı PR, kademeli
+
+6. UI-1 — WebSocket dashboard
+   En son: diğerleri stable olunca UI'ı refactor et
+
+7. OPS-1 (tam) — Monitoring tamamla
+   Prometheus + Grafana + Loki + AlertManager
+
+────────────────────────────────────────────────────────────
+KABUL KRİTERLERİ
+────────────────────────────────────────────────────────────
+
+1. Tüm hafıza/trace verileri PostgreSQL'de; JSONL kullanılmıyor
+2. Dashboard anlık güncelleniyor (WebSocket, polling yok)
+3. 1000 eşzamanlı hafıza kaydında sorgu < 100ms (pgvector index)
+4. Kod çalıştırma Docker sandbox'ta izole; ağ erişimi yok
+5. API tüm isteklerde X-Request-ID başlığı dönüyor
+6. Prometheus'ta agent_task_duration, memory_record_count metrikleri mevcut
+7. docker compose up tek komutla tam sistem ayağa kalkıyor
+
+────────────────────────────────────────────────────────────
+GEREKLİ PAKETLER
+────────────────────────────────────────────────────────────
+
+pip install asyncpg sqlalchemy alembic pgvector
+pip install slowapi prometheus-fastapi-instrumentator
+pip install tweepy
+pip install chart.js  # (CDN ile, pip değil)
+apt install docker-compose-v2 postgresql-client
+
+────────────────────────────────────────────────────────────
+BAĞIMLILIKLAR
+────────────────────────────────────────────────────────────
+
+Bu plan için ön koşullar:
+✅ FastAPI tabanlı web_arayuzu.py (var)
+✅ JSONL tabanlı memory_store.py (geçiş için)
+✅ Mevcut tool_registry.py + action_executor.py
+❌ PostgreSQL sunucu (kurulacak)
+❌ Docker kurulu ortam (gerekli)
+❌ API anahtarları (SerpAPI, Twitter OAuth)

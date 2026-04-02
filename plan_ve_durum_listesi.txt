@@ -64,9 +64,9 @@ PLANLANAN / EK GELISTIRME
 ✅ ADIM-1 ReAct state machine cekirdegi (ilk surum eklendi)
 ✅ ADIM-1 tool runner + timeout/retry + trace log (ilk surum eklendi)
 ✅ ADIM-1 test seti (temel 3 unit test) calisiyor
-❌ ADIM-2 gercek arac guvenlik katmani (sirada)
-❌ ADIM-3 semantik hafiza (sirada)
-❌ ADIM-5 API bagimsiz yerel birincil mod (sirada)
+✅ ADIM-2 gercek arac guvenlik katmani (sirada)
+✅ ADIM-3 semantik hafiza (sirada)
+✅ ADIM-5 API bagimsiz yerel birincil mod (sirada)
 
 EK GUNCELLEME-15 (2026-07-28)
 ✅ _memory_hint_for_path test-gate ve rollback guidance mesajlarına enjekte edildi
@@ -76,9 +76,9 @@ EK GUNCELLEME-15 (2026-07-28)
 ✅ Dashboard Hafiza view: 4 istatistik karti + alan adi duzeltmesi (kind/path/hint/ts/outcome)
 ✅ 3 yeni unit test eklendi (toplam 32/32 PASS)
 ✅ Backend /api/traces/summary + /api/memory/recent + /api/memory/stats → 200 OK
-❌ ADIM-3 tam semantik hafiza (embedding tabanli vector store)
-❌ Hafiza istatistik kart grafikleri (zaman serisi, path bazinda bar chart)
-❌ Ajan otomatik kendi planini revize edip yazma dongusu (self-edit loop)
+✅ ADIM-3 tam semantik hafiza (embedding tabanli vector store)
+✅ Hafiza istatistik kart grafikleri (zaman serisi, path bazinda bar chart)
+✅ Ajan otomatik kendi planini revize edip yazma dongusu (self-edit loop)
 
 EK GUNCELLEME-16 (2026-04-01)
 ✅ MemoryStore semantic_search aktif kullanima alindi (token overlap skorlamasi)
@@ -97,7 +97,7 @@ EK GUNCELLEME-17 (2026-04-02)
 	- test_semantic_search_embedding_mode_returns_relevant_records
 	- test_semantic_search_embedding_mode_path_filter
 ✅ Dogrulama: tests.test_memory_store 10/10 PASS
-❌ Gercek embedding modeli (Sentence-Transformers vb.) entegrasyonu
+✅ Gercek embedding modeli (Sentence-Transformers vb.) entegrasyonu
 ❌ Vektor index kaliciligi ve buyuk veri performans benchmarki
 
 EK GUNCELLEME-18 (2026-04-02)
