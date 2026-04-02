@@ -14,7 +14,8 @@ from typing import Set
 import aiofiles
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel
 
 import hafiza_yoneticisi as hm
 import llm_istemci as llm
@@ -176,24 +177,26 @@ async def ajan_sonuc_callback(sonuc: dict):
     )
 
 
-def _html_yukle() -> str:
-    """Ana arayüz HTML'ini dosyadan yükler (public/ajan_arayuz.html)."""
-    html_dosya = Path("public/ajan_arayuz.html")
+def _html_yukle(dosya: str = "public/ajan_arayuz.html") -> str:
     try:
-        return html_dosya.read_text(encoding="utf-8")
+        return Path(dosya).read_text(encoding="utf-8")
     except FileNotFoundError:
-        return "<h1>Hata: public/ajan_arayuz.html bulunamadı</h1>"
-
-
+        return f"<h1>Hata: {dosya} bulunamadı</h1>"
 
 
 @app.get("/", response_class=HTMLResponse)
 async def anasayfa():
-    return HTMLResponse(content=_html_yukle())
+    """Yeni chat arayüzü (varsayılan anasayfa)."""
+    return HTMLResponse(content=_html_yukle("public/chat.html"))
 
 
 @app.get("/legacy", response_class=HTMLResponse)
 async def legacy_arayuz():
+    return HTMLResponse(content=_html_yukle())
+
+
+@app.get("/ajan", response_class=HTMLResponse)
+async def ajan_arayuz():
     return HTMLResponse(content=_html_yukle())
 
 
@@ -736,6 +739,150 @@ async def plan_mark_done(text: str):
         return {"success": ok, "text": text}
     except Exception as e:
         return {"error": str(e)}
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CHAT API — Çok turlu sohbet, SSE streaming, session yönetimi
+# ════════════════════════════════════════════════════════════════════════════
+
+class ChatRequest(BaseModel):
+    session_id: str | None = None
+    message: str
+    system_prompt: str = ""
+    model: str | None = None
+    provider: str | None = None
+    max_tokens: int = 2048
+    agent_mode: bool = False  # True ise ReAct loop + araç kullanımı
+
+
+@app.get("/api/chat/sessions")
+async def chat_list_sessions():
+    from chat_session import get_store
+    store = get_store()
+    return {"sessions": await store.list_sessions()}
+
+
+@app.post("/api/chat/sessions")
+async def chat_create_session(title: str = "Yeni Konuşma"):
+    from chat_session import get_store
+    store = get_store()
+    session = await store.create(title=title)
+    return session.summary()
+
+
+@app.delete("/api/chat/sessions/{session_id}")
+async def chat_delete_session(session_id: str):
+    from chat_session import get_store
+    store = get_store()
+    ok = await store.delete(session_id)
+    return {"success": ok}
+
+
+@app.get("/api/chat/sessions/{session_id}/messages")
+async def chat_get_messages(session_id: str):
+    from chat_session import get_store
+    from dataclasses import asdict
+    store = get_store()
+    session = await store.get(session_id)
+    if not session:
+        return {"error": "Session bulunamadı", "messages": []}
+    return {
+        "session_id": session_id,
+        "title": session.title,
+        "messages": [asdict(m) for m in session.messages],
+    }
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest):
+    """SSE streaming sohbet endpoint'i."""
+    from chat_session import get_store
+
+    store = get_store()
+
+    # Session oluştur veya al
+    if req.session_id:
+        session = await store.get(req.session_id)
+        if not session:
+            session = await store.create()
+    else:
+        session = await store.create()
+
+    # Kullanıcı mesajını kaydet
+    await store.add_message(session.id, "user", req.message)
+
+    # Sağlayıcı bilgileri
+    try:
+        saglayici, api_key, model = llm.etkin_baglanti()
+    except Exception:
+        saglayici, api_key, model = "auto", llm._LOCAL_LLM_URL, llm._LOCAL_LLM_MODEL
+
+    if req.provider:
+        saglayici = req.provider
+    if req.model:
+        model = req.model
+
+    sistem = req.system_prompt or (
+        "Sen akıllı, yardımsever ve dürüst bir yapay zeka asistanısın. "
+        "Türkçe sorulara Türkçe, İngilizce sorulara İngilizce yanıt ver. "
+        "Kod bloklarını markdown formatında yaz."
+    )
+
+    async def generate():
+        import json as _json
+
+        # Oturum başlangıç bilgisi
+        yield f"data: {_json.dumps({'type': 'session', 'session_id': session.id, 'title': session.title})}\n\n"
+
+        # Ajan modu: araç kullanımı ile ReAct loop
+        if req.agent_mode:
+            yield f"data: {_json.dumps({'type': 'agent_start'})}\n\n"
+            try:
+                from agent_core import AgentCore
+                from react_tools import build_default_registry
+                from memory_store import MemoryStore
+                reg = build_default_registry(".", MemoryStore())
+                core = AgentCore(llm_fn=llm.metin_uret, tool_registry=reg)
+                result = await core.run(req.message, system_extra=sistem)
+                full = result.get("final_answer", result.get("output", ""))
+                yield f"data: {_json.dumps({'type': 'token', 'content': full})}\n\n"
+                # Araç izlerini gönder
+                for step in result.get("steps", []):
+                    for action in step.get("actions", []):
+                        yield f"data: {_json.dumps({'type': 'tool_call', 'tool': action.get('tool',''), 'args': action.get('args',{})})}\n\n"
+                    for res in step.get("results", []):
+                        yield f"data: {_json.dumps({'type': 'tool_result', 'tool': res.get('tool',''), 'summary': str(res.get('result',''))[:200]})}\n\n"
+                await store.add_message(session.id, "assistant", full)
+            except Exception as e:
+                err = f"Ajan hatası: {e}"
+                yield f"data: {_json.dumps({'type': 'error', 'message': err})}\n\n"
+                await store.add_message(session.id, "assistant", err)
+        else:
+            # Sohbet modu: streaming token
+            llm_msgs = session.llm_messages()[:-1]  # son user mesajı zaten req.message
+            llm_msgs.append({"role": "user", "content": req.message})
+
+            full_response = []
+            try:
+                async for token in llm.stream_chat(
+                    llm_msgs, sistem,
+                    saglayici=saglayici, api_key=api_key, model=model,
+                    max_tokens=req.max_tokens,
+                ):
+                    full_response.append(token)
+                    yield f"data: {_json.dumps({'type': 'token', 'content': token})}\n\n"
+
+                complete = "".join(full_response)
+                await store.add_message(session.id, "assistant", complete)
+                yield f"data: {_json.dumps({'type': 'done', 'session_id': session.id})}\n\n"
+            except Exception as e:
+                err_msg = f"Hata: {e}"
+                yield f"data: {_json.dumps({'type': 'error', 'message': err_msg})}\n\n"
+                if full_response:
+                    await store.add_message(session.id, "assistant", "".join(full_response))
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.get("/api/memory/timeseries")

@@ -1,0 +1,195 @@
+================================================================================
+07 — SOHBET ARAYÜZÜ — DURUM TAKİBİ
+================================================================================
+Tarih        : 2026-04-02
+Plan dosyası : DEV_PLAN_MASTER_/07_CHAT_INTERFACE/PLAN.txt
+Genel Durum  : BAŞLANMADI
+================================================================================
+
+Semboller:
+  ❌ Başlanmadı
+  🔄 Devam ediyor
+  ✅ Tamamlandı
+  ⏸ Askıya alındı
+  🔁 Yeniden yapılacak
+
+================================================================================
+ADIM 1 — LLM STREAMING DESTEĞİ
+================================================================================
+Dosya: llm_istemci.py
+
+  ❌  1.1  Anthropic streaming — stream_metin_uret async generator eklendi
+  ❌  1.2  Groq streaming — create(stream=True) chunk iterasyonu eklendi
+  ❌  1.3  Ollama streaming — requests.post(stream=True) satır parse eklendi
+  ❌  1.4  Ortak arayüz — üç provider aynı AsyncGenerator[str, None] imzasını paylaşıyor
+  ❌  1.5  Hata yönetimi — bağlantı kopması, timeout, API hatası işleniyor
+  ❌  1.6  Streaming birim testi — her provider için basit doğrulama scripti
+
+================================================================================
+ADIM 2 — SESSION MANAGER SINIFI
+================================================================================
+Dosya: chat_session_manager.py (yeni)
+
+  ❌  2.1  ChatSession dataclass tanımlandı (id, title, created_at, updated_at, model, system_prompt, messages)
+  ❌  2.2  ChatSessionManager sınıfı iskelet oluşturuldu
+  ❌  2.3  oturum_olustur(model, system_prompt) → UUID implementasyonu
+  ❌  2.4  mesaj_ekle(session_id, role, content, tool_calls, tool_results) implementasyonu
+  ❌  2.5  oturum_getir(session_id) → ChatSession implementasyonu
+  ❌  2.6  tum_oturumlar() → List[dict] özet listesi implementasyonu
+  ❌  2.7  oturum_sil(session_id) → bool implementasyonu
+  ❌  2.8  Otomatik başlık üretimi (ilk kullanıcı mesajından ilk 50 karakter)
+  ❌  2.9  JSONL kalıcılık — data/sessions/{uuid}.jsonl okuma/yazma (opsiyonel)
+  ❌  2.10 Uygulama başlangıcında mevcut JSONL oturumlarını belleğe yükleme
+  ❌  2.11 SessionManager birim testleri
+
+================================================================================
+ADIM 3 — /api/chat/* ENDPOINT'LERİ
+================================================================================
+Dosya: api_rotalari.py (mevcut dosyaya ekleme)
+
+  ❌  3.1  POST /api/chat/stream — route tanımlandı
+  ❌  3.2  POST /api/chat/stream — istek gövdesi parse (session_id, message, model, mode, system_prompt)
+  ❌  3.3  POST /api/chat/stream — yeni/mevcut oturum yönetimi
+  ❌  3.4  POST /api/chat/stream — SSE response headers (Content-Type: text/event-stream)
+  ❌  3.5  POST /api/chat/stream — "session_start" event iletimi
+  ❌  3.6  POST /api/chat/stream — LLM token streaming → SSE "token" event dönüşümü
+  ❌  3.7  POST /api/chat/stream — "done" event (usage istatistikleri dahil)
+  ❌  3.8  POST /api/chat/stream — "error" event ve hata yönetimi
+  ❌  3.9  POST /api/chat/stream — keepalive (her 15 saniyede bir yorum satırı)
+  ❌  3.10 GET /api/chat/sessions — tüm oturumları JSON olarak döndür
+  ❌  3.11 DELETE /api/chat/sessions/{id} — oturum silme endpoint'i
+  ❌  3.12 GET /api/chat/sessions/{id}/messages — mesaj geçmişi endpoint'i
+  ❌  3.13 curl ile SSE endpoint manuel testi
+  ❌  3.14 CORS headers — frontend geliştirme sırasında izin ver
+
+================================================================================
+ADIM 4 — chat.html UI
+================================================================================
+Dosya: public/chat.html (yeni)
+
+  --- 4a: HTML İskelet + CSS ---
+  ❌  4.1  Temel HTML yapısı (sidebar, main, input alanı)
+  ❌  4.2  CSS değişkenleri (renkler, font boyutları, boşluklar)
+  ❌  4.3  Karanlık tema varsayılan renk paleti
+  ❌  4.4  Flexbox/Grid düzen (sidebar + main yan yana)
+  ❌  4.5  Header (logo, dashboard linki, ayarlar butonu)
+
+  --- 4b: Konuşma Listesi ---
+  ❌  4.6  Sayfa yüklenince GET /api/chat/sessions çağrısı
+  ❌  4.7  Sidebar'da oturumlar listelenir (gruplu: bugün, dün, bu hafta)
+  ❌  4.8  Aktif konuşma vurgulanır
+  ❌  4.9  Konuşmaya tıklanınca GET /api/chat/sessions/{id}/messages yüklenir
+  ❌  4.10 Mesajlar ana alana render edilir (geçmiş yüklemesi)
+  ❌  4.11 Konuşma silme butonu (hover'da görünür, onay ister)
+  ❌  4.12 Yeni Konuşma butonu — state sıfırlama
+
+  --- 4c: Mesaj Gönderme + SSE ---
+  ❌  4.13 Textarea — Enter gönder, Shift+Enter yeni satır
+  ❌  4.14 Gönder butonu — devre dışı bırakma mantığı
+  ❌  4.15 POST /api/chat/stream fetch + EventSource dinleyici
+  ❌  4.16 "session_start" event işleyici — localStorage'a UUID kaydet
+  ❌  4.17 "token" event işleyici — balonuna ekleme, otomatik kaydırma
+  ❌  4.18 "done" event işleyici — imleç kaldırma, kullanım istatistikleri
+  ❌  4.19 "error" event işleyici — kırmızı bildirim
+  ❌  4.20 Durdur butonu — SSE bağlantısını kes, streaming sırasında görünür
+  ❌  4.21 Streaming sırasında imleç animasyonu (CSS blink)
+  ❌  4.22 Otomatik en alta kaydırma (smooth scroll, kullanıcı yukarı kaydırdıysa devre dışı)
+
+  --- 4d: Markdown + Syntax Highlighting ---
+  ❌  4.23 marked.js CDN entegrasyonu
+  ❌  4.24 highlight.js CDN entegrasyonu
+  ❌  4.25 DOMPurify CDN entegrasyonu (XSS koruması)
+  ❌  4.26 Asistan mesajları Markdown olarak render edilir
+  ❌  4.27 Kod blokları highlight.js ile renklendirilen
+  ❌  4.28 Streaming sırasında render debounce (her 100ms render, her token değil)
+  ❌  4.29 Kısmi Markdown bozulmaları işleniyor (streaming bitmeden önce düzgün görünüm)
+
+  --- 4e: Araç Çağrısı Panelleri ---
+  ❌  4.30 "tool_start" event işleyici — collapsible panel oluşturma
+  ❌  4.31 "tool_result" event işleyici — panel içeriği güncelleme
+  ❌  4.32 "tool_error" event işleyici — kırmızı ikon, hata mesajı
+  ❌  4.33 Panel daraltma/genişletme animasyonu (CSS transition)
+  ❌  4.34 Araç argümanları JSON formatında gösterim
+  ❌  4.35 Araç sonucu önizleme (uzun sonuçlar kırpılır, "daha fazla" linki)
+
+  --- 4f: Model Seçici + Sistem Prompt ---
+  ❌  4.36 Model dropdown HTML + CSS
+  ❌  4.37 GET /api/models ile mevcut modeller yüklenir (veya statik liste)
+  ❌  4.38 Model seçimi localStorage'a kaydedilir
+  ❌  4.39 Sayfa yüklenince localStorage'dan model yüklenir
+  ❌  4.40 Ayarlar paneli (modal veya sağ panel)
+  ❌  4.41 Sistem prompt textarea ayarlar panelinde
+  ❌  4.42 Sistem prompt kaydet butonu — localStorage'a yazar
+  ❌  4.43 Sistem prompt sıfırla butonu — varsayılan değere döner
+
+  --- 4g: Responsive CSS ---
+  ❌  4.44 @media (max-width: 768px) — mobil breakpoint stilleri
+  ❌  4.45 Hamburger menü butonu (mobilde görünür, sidebar toggle)
+  ❌  4.46 Sidebar overlay — mobilde açıkken arkaplanı karartır
+  ❌  4.47 Input alanı mobilde düzgün boyutlandırma
+  ❌  4.48 Mesaj balonları mobilde tam genişlik
+
+  --- 4h: localStorage Entegrasyonu ---
+  ❌  4.49 Aktif session_id localStorage'a kaydedilir/okunur
+  ❌  4.50 Sayfa yüklenince son oturum otomatik yüklenir
+  ❌  4.51 Seçili model localStorage'a kaydedilir/okunur
+  ❌  4.52 Sistem prompt localStorage'a kaydedilir/okunur
+  ❌  4.53 Ajan modu tercihi localStorage'a kaydedilir/okunur
+
+================================================================================
+ADIM 5 — ANASAYFA YÖNLENDİRMESİ
+================================================================================
+  ❌  5.1  GET / → public/chat.html döndür (statik dosya serve)
+  ❌  5.2  Eski GET / → /dashboard 301 yönlendirmesi eklendi
+  ❌  5.3  Mevcut HTML şablonlarındaki anasayfa linkleri /dashboard olarak güncellendi
+  ❌  5.4  Browser ile GET / testi — chat.html yükleniyor
+
+================================================================================
+ADIM 6 — AJAN MODU ENTEGRASYONU
+================================================================================
+Dosya: ajan_calistirici.py + api_rotalari.py
+
+  ❌  6.1  ReAct döngüsü SSE uyumlu async generator olarak adapte edildi
+  ❌  6.2  Her araç çağrısı öncesi "tool_start" SSE eventi gönderiliyor
+  ❌  6.3  Her araç sonucu sonrası "tool_result" SSE eventi gönderiliyor
+  ❌  6.4  Araç hatası durumunda "tool_error" SSE eventi gönderiliyor
+  ❌  6.5  ReAct iterasyon sayısı SSE ile bildiriliyor
+  ❌  6.6  Maks. iterasyon (10) aşılınca kullanıcıya bildirim ve temiz sonlandırma
+  ❌  6.7  Ajan modu sohbet modundan POST body'deki "mode" alanıyla ayrılıyor
+  ❌  6.8  Ajan modu birim testi: araç kullanan bir prompt ile uçtan uca test
+
+================================================================================
+GENEL İLERLEME ÖZETİ
+================================================================================
+
+  Adım 1 — LLM Streaming Desteği     :  0 /  6  ❌
+  Adım 2 — Session Manager Sınıfı    :  0 / 11  ❌
+  Adım 3 — /api/chat/* Endpoint'leri :  0 / 14  ❌
+  Adım 4 — chat.html UI              :  0 / 53  ❌
+  Adım 5 — Anasayfa Yönlendirmesi    :  0 /  4  ❌
+  Adım 6 — Ajan Modu Entegrasyonu    :  0 /  8  ❌
+  ─────────────────────────────────────────────
+  TOPLAM                             :  0 / 96  ❌
+
+================================================================================
+KABİL KRİTERLERİ DURUMU
+================================================================================
+
+  ❌  KK-01  Streaming: ilk token < 1 saniye, durdur butonu, otomatik yeniden bağlanma
+  ❌  KK-02  Markdown: kod renklendirme, XSS koruması, streaming sırasında bozulma yok
+  ❌  KK-03  Geçmiş: sayfa yenilemede geri yükleme, silme, yeni konuşma
+  ❌  KK-04  Araç modu: panel görünürlüğü, daraltma, renk kodlaması, sıralı zincir
+  ❌  KK-05  Anasayfa: GET / → chat, /dashboard erişilebilir, header linki çalışır
+  ❌  KK-06  Model seçici: dropdown, localStorage kalıcılığı, yenileme sonrası korunma
+  ❌  KK-07  Responsive: 375px kullanılabilir, hamburger menü, taşmayan input
+  ❌  KK-08  Sistem prompt: düzenleme, kaydetme, sıfırlama
+
+================================================================================
+NOTLAR / ENGELLER
+================================================================================
+
+  [2026-04-02] Durum dosyası oluşturuldu. Geliştirme henüz başlamadı.
+
+================================================================================
+Son güncelleme: 2026-04-02
+================================================================================

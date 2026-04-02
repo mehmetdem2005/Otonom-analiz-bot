@@ -1,0 +1,405 @@
+================================================================================
+07 — SOHBET ARAYÜZÜ (ChatGPT/Claude Seviyesi)
+================================================================================
+Tarih    : 2026-04-02
+Durum    : UYGULANACAK (hemen)
+Klasör   : DEV_PLAN_MASTER_/07_CHAT_INTERFACE/
+================================================================================
+
+
+1. NEDEN?
+--------------------------------------------------------------------------------
+Mevcut sohbet arayüzü (ajan_arayuz.html) temel WebSocket bağlantısından ibaret:
+  - Konuşma geçmişi yok — sayfa yenilenince her şey siliniyor
+  - Streaming yok — LLM yanıtı tek seferde geliyor, kullanıcı bekliyor
+  - Markdown desteği yok — kod blokları düz metin olarak görünüyor
+  - Çok konuşma desteği yok — tek bir oturum var, yan yana karşılaştırma imkansız
+  - Araç çağrıları gizli — ajan ne yapıyor kullanıcı görmüyor
+  - Mobil uyumsuz — dar ekranlarda bozuluyor
+  - Anasayfa değil — GET / dashboard'a gidiyor, sohbet gömülü kalıyor
+
+Hedef: Claude.ai ve ChatGPT kalitesinde, bağımsız, tam özellikli bir sohbet
+arayüzü. Bu arayüz uygulamanın yeni anasayfası olacak.
+
+
+2. HEDEFLER
+--------------------------------------------------------------------------------
+
+2.1 Streaming Yanıt (SSE — Server-Sent Events)
+  - LLM token ürettikçe tarayıcıya anlık iletim
+  - İlk token görünme süresi < 1 saniye
+  - Karakter karakter değil, token token akış (daha verimli)
+  - Bağlantı kopunca otomatik yeniden bağlanma (EventSource retry)
+
+2.2 Konuşma Geçmişi
+  - Her konuşma benzersiz UUID ile tanımlanır
+  - Oturum bazlı saklama (sunucu belleği, isteğe bağlı JSONL kalıcılık)
+  - Sol sidebar'da konuşma listesi (en yeni üstte)
+  - Konuşma başlığı: ilk kullanıcı mesajından otomatik üretilir (ilk 50 karakter)
+  - Sayfa yenilenince session UUID localStorage'dan okunur, geçmiş geri yüklenir
+  - Birden fazla konuşma: yeni konuşma butonu ile sıfırdan başlama
+
+2.3 Araç Kullanımı Görünürlüğü
+  - Ajan araç çağırdığında UI'da collapsible panel açılır
+  - Panel içeriği: araç adı, argümanlar (JSON), sonuç (JSON/metin)
+  - Başarılı araç: yeşil ikon, başarısız: kırmızı ikon
+  - Araç zinciri: birden fazla araç sıralı gösterilir
+  - Kullanıcı paneli daraltabilir/genişletebilir
+
+2.4 Markdown + Kod Renklendirme
+  - marked.js (CDN) ile Markdown → HTML dönüşümü
+  - highlight.js (CDN) ile kod bloklarına syntax highlighting
+  - Desteklenen diller: Python, JavaScript, Bash, JSON, SQL, YAML
+  - Satır içi kod: monospace + hafif arka plan
+  - Tablo desteği (GitHub Flavored Markdown)
+  - Başlık, kalın, italik, liste, alıntı desteği
+
+2.5 Responsive Tasarım
+  - Mobil (< 768px): sidebar gizli, hamburger menü ile açılır
+  - Tablet (768px–1024px): sidebar küçük, ikonlar görünür
+  - Masaüstü (> 1024px): tam sidebar, konuşma başlıkları görünür
+  - Karanlık tema varsayılan (CSS variables ile kolay tema değişimi)
+
+2.6 Model Seçici
+  - Dropdown: yerel Ollama modelleri, Groq modelleri, Anthropic modelleri
+  - Seçilen model localStorage'da saklanır (sayfa yenilemede korunur)
+  - Model değişince mevcut konuşmaya not eklenir
+  - Her konuşma kendi model bilgisini saklar
+
+2.7 Sistem Prompt Yapılandırma
+  - Ayarlar paneli (sağ üst köşe dişli ikon)
+  - Sistem prompt textarea (birden fazla satır)
+  - Kaydet butonu — localStorage'a yazılır
+  - Sıfırla butonu — varsayılan sistem prompta döner
+  - Konuşmaya özel sistem prompt (her session bağımsız)
+
+2.8 Anasayfa Olarak
+  - GET / isteği artık chat.html'i döner (dashboard değil)
+  - Eski dashboard /dashboard route'unda erişilebilir kalır
+  - chat.html içinde dashboard'a bağlantı bulunur
+
+
+3. MİMARİ
+--------------------------------------------------------------------------------
+
+3.1 Frontend
+  Dosya   : public/chat.html
+  Yaklaşım: Tek HTML dosyası, vanilla JavaScript (çerçeve yok)
+  CDN bağımlılıkları:
+    - marked.js  → Markdown dönüştürücü
+    - highlight.js → Sözdizimi renklendirme
+    - DOMPurify  → XSS koruması (Markdown HTML çıktısını temizler)
+  Stil    : Dosya içi <style> bloğu (CSS variables, flexbox/grid düzen)
+  Durum   : JavaScript modülü yok, global state nesnesi (window.chatState)
+
+3.2 Backend — Yeni Endpoint'ler
+
+  POST /api/chat/stream
+    İstek gövdesi:
+      {
+        "session_id": "uuid-veya-null",   // null → yeni oturum oluştur
+        "message": "kullanıcı mesajı",
+        "model": "claude-3-5-sonnet",
+        "mode": "chat|agent",             // chat: araç yok, agent: ReAct loop
+        "system_prompt": "isteğe bağlı"
+      }
+    Yanıt: text/event-stream (SSE)
+    Davranış:
+      - session_id null ise yeni UUID üret, oturumu başlat
+      - Kullanıcı mesajını oturuma ekle
+      - LLM'den streaming yanıt al
+      - Her tokeni SSE olarak ilet
+      - Tamamlanınca asistan mesajını oturuma ekle
+      - Araç modu aktifse ReAct döngüsü çalıştır, araç eventleri de ilet
+
+  GET /api/chat/sessions
+    Yanıt:
+      [
+        {
+          "id": "uuid",
+          "title": "İlk mesajdan kırpılmış başlık",
+          "created_at": "ISO8601",
+          "updated_at": "ISO8601",
+          "message_count": 12,
+          "model": "claude-3-5-sonnet"
+        },
+        ...
+      ]
+
+  DELETE /api/chat/sessions/{id}
+    Yanıt: {"ok": true} veya {"error": "bulunamadı"}
+    Davranış: Bellekten ve varsa JSONL dosyasından siler
+
+  GET /api/chat/sessions/{id}/messages
+    Yanıt:
+      [
+        {
+          "role": "user|assistant|tool",
+          "content": "...",
+          "timestamp": "ISO8601",
+          "tool_calls": [...],   // varsa
+          "tool_results": [...]  // varsa
+        },
+        ...
+      ]
+
+3.3 Session Store
+
+  Sınıf  : ChatSessionManager (yeni modül: chat_session_manager.py)
+  Depolama: In-memory Python dict — { uuid: ChatSession }
+  Kalıcılık (opsiyonel): Her oturum data/sessions/{uuid}.jsonl dosyasına yazılır
+  ChatSession alanları:
+    - id: str (UUID4)
+    - title: str
+    - created_at: datetime
+    - updated_at: datetime
+    - model: str
+    - system_prompt: str
+    - messages: list[dict]
+
+3.4 LLM Streaming
+
+  Anthropic  : client.messages.stream() bağlam yöneticisi, on_text callback
+  Groq       : client.chat.completions.create(stream=True), chunk iterasyonu
+  Ollama     : requests.post(stream=True), satır satır JSON parse
+  Ortak arayüz: llm_istemci.py'e stream_metin_uret(mesajlar, model, **kwargs)
+                → AsyncGenerator[str, None] (token dizisi üretir)
+
+
+4. FRONTEND BİLEŞENLERİ
+--------------------------------------------------------------------------------
+
+4.1 Sol Sidebar (genişlik: 260px masaüstü)
+  ┌─────────────────────┐
+  │ [+] Yeni Konuşma    │
+  │─────────────────────│
+  │ Model Seçici        │
+  │ [Dropdown ▾]        │
+  │─────────────────────│
+  │ KONUŞMALAR          │
+  │ • Dün               │
+  │   > Borsa analizi   │
+  │   > Python sorusu   │
+  │ • Bu hafta          │
+  │   > Haber özeti     │
+  └─────────────────────┘
+
+4.2 Ana Mesaj Alanı (flex-grow: 1, overflow-y: scroll)
+  - Kullanıcı mesajları: sağa hizalı, mavi/mor baloncuk
+  - Asistan mesajları: sola hizalı, koyu gri baloncuk, Markdown render
+  - Araç çağrısı paneli (collapsible):
+      ▶ web_ara çağrıldı — "BIST 100 haberleri"
+        [Argümanlar JSON]
+        [Sonuç önizleme]
+  - Streaming sırasında: yanıp sönen imleç animasyonu (CSS blink)
+  - Akış başlayınca otomatik en alta kaydırma (smooth scroll)
+  - Boş durum: ortada hoş karşılama mesajı + örnek sorular
+
+4.3 Alt Input Alanı
+  ┌──────────────────────────────────────────┬───────┐
+  │ Bir şeyler yazın... (Shift+Enter: yeni  │  ↑   │
+  │ satır, Enter: gönder)                   │ Gönder│
+  └──────────────────────────────────────────┴───────┘
+  [🔧 Ajan Modu]  [📎 Sistem Prompt]
+
+  - Textarea otomatik yükseklik (max 200px, sonra scroll)
+  - Gönder butonu: metin yoksa ve streaming devam ediyorsa devre dışı
+  - Streaming sırasında "Durdur" butonu görünür (SSE bağlantısını keser)
+  - Ajan modu toggle: aktifken ikon renkli
+  - Karakter sayacı (isteğe bağlı, uzun mesajlar için)
+
+4.4 Header
+  ┌─────────────────────────────────────────────────┐
+  │ ☰  Otonom Analiz Bot              📊 Dashboard │
+  │    [sohbet başlığı düzenlenebilir]    ⚙ Ayarlar│
+  └─────────────────────────────────────────────────┘
+
+
+5. SSE PROTOKOLÜ (Server-Sent Events)
+--------------------------------------------------------------------------------
+
+Sunucudan istemciye gönderilen event türleri:
+
+  Oturum başlangıcı — ilk event, session UUID iletir:
+    data: {"type": "session_start", "session_id": "uuid", "title": "..."}
+
+  LLM token — asistan yanıtı parça parça:
+    data: {"type": "token", "content": "Merhaba"}
+    data: {"type": "token", "content": " nasılsın"}
+
+  Araç çağrısı başladı:
+    data: {"type": "tool_start", "tool_call_id": "tc_1", "tool": "web_ara", "args": {"sorgu": "BIST 100"}}
+
+  Araç sonucu geldi:
+    data: {"type": "tool_result", "tool_call_id": "tc_1", "tool": "web_ara", "result": {"baslik": "...", "icerik": "..."}, "success": true}
+
+  Araç hatası:
+    data: {"type": "tool_error", "tool_call_id": "tc_1", "tool": "web_ara", "error": "Bağlantı zaman aşımı"}
+
+  Tamamlandı — kullanım istatistikleri:
+    data: {"type": "done", "usage": {"input_tokens": 150, "output_tokens": 320}, "finish_reason": "end_turn"}
+
+  Hata — işlem iptal edildi:
+    data: {"type": "error", "message": "LLM bağlantısı kurulamadı", "code": "LLM_CONNECTION_ERROR"}
+
+  Bağlantı canlı tutma (her 15 saniyede bir):
+    : keepalive
+
+İstemci tarafı işleme:
+  - "token" → mevcut asistan balonuna karakter ekle, Markdown yeniden render et
+  - "tool_start" → yeni araç paneli oluştur (daraltılmış)
+  - "tool_result" → paneli güncelle, sonucu göster
+  - "done" → imleci kaldır, token sayısını göster, oturum listesini güncelle
+  - "error" → kırmızı hata bildirimi göster
+  - "session_start" → localStorage'a session_id kaydet, sidebar güncelle
+
+
+6. KONUŞMA MODLARI
+--------------------------------------------------------------------------------
+
+6.1 Sohbet Modu (varsayılan)
+  - Sadece LLM, araç çağrısı yok
+  - Sistem prompt: genel asistan
+  - Yanıt hızı: hızlı (tek LLM çağrısı)
+  - Kullanım: genel sohbet, yazma yardımı, sorular
+
+6.2 Ajan Modu
+  - ReAct döngüsü (Düşün → Araç Seç → Çalıştır → Gözlemle → Tekrar)
+  - Tüm araçlar etkin: web_ara, haber_getir, hisse_analiz, hesap_makinesi, vb.
+  - Yanıt hızı: yavaş (birden fazla LLM çağrısı + harici API)
+  - Kullanım: araştırma, analiz, gerçek zamanlı veri gerektiren görevler
+  - Maks. iterasyon: 10 (sonsuz döngüyü önler)
+  - Her iterasyon SSE ile kullanıcıya bildirilir
+
+6.3 Geçiş
+  - Alt input alanındaki toggle butonu ile anlık geçiş
+  - Mevcut konuşma içinde mod değiştirilebilir
+  - Mod değişimi konuşma geçmişine sistem notu olarak eklenir
+
+
+7. YAPILMA SIRASI
+--------------------------------------------------------------------------------
+
+Adım 1: LLM Streaming Desteği
+  Dosya : llm_istemci.py
+  İş    : Mevcut metin_uret fonksiyonuna paralel stream_metin_uret ekle
+  Çıktı : AsyncGenerator[str, None] — token akışı üreten async fonksiyon
+  Test  : Basit script ile Anthropic/Groq/Ollama streaming doğrula
+  Süre  : ~2 saat
+
+Adım 2: Session Manager Sınıfı
+  Dosya : chat_session_manager.py (yeni)
+  İş    : ChatSession dataclass, ChatSessionManager sınıfı
+  Özellikler:
+    - oturum_olustur(model, system_prompt) → UUID
+    - mesaj_ekle(session_id, role, content, ...)
+    - oturum_getir(session_id) → ChatSession
+    - tum_oturumlar() → List[dict] (özet)
+    - oturum_sil(session_id) → bool
+    - JSONL kalıcılık (isteğe bağlı, config ile açılır)
+  Test  : Unit testler
+  Süre  : ~2 saat
+
+Adım 3: /api/chat/* Endpoint'leri
+  Dosya : api_rotalari.py (mevcut) — yeni route'lar ekle
+  İş    :
+    - POST /api/chat/stream → SSE yanıt üreten async handler
+    - GET /api/chat/sessions → JSON liste
+    - DELETE /api/chat/sessions/{id} → JSON yanıt
+    - GET /api/chat/sessions/{id}/messages → JSON liste
+  SSE handler:
+    - session_manager.oturum_olustur veya mevcut oturumu yükle
+    - llm_istemci.stream_metin_uret çağır
+    - AsyncGenerator token'larını SSE event'lerine dönüştür
+    - Ajan modunda ReAct döngüsünü SSE ile entegre et
+  Test  : curl ile SSE testi, Postman koleksiyonu
+  Süre  : ~4 saat
+
+Adım 4: chat.html UI
+  Dosya : public/chat.html (yeni)
+  İş    : Tam frontend implementasyonu
+  Aşamalar:
+    a) HTML iskelet + CSS (sidebar, main, input)
+    b) Konuşma listesi (yükleme, yeni oluşturma, silme)
+    c) Mesaj gönderme + SSE alma (streaming render)
+    d) Markdown + highlight.js entegrasyonu
+    e) Araç çağrısı panelleri
+    f) Model seçici + sistem prompt ayarları
+    g) Mobil responsive CSS
+    h) localStorage entegrasyonu (session_id, model, sistem prompt)
+  Test  : Tarayıcıda manuel test, farklı ekran boyutları
+  Süre  : ~6 saat
+
+Adım 5: Anasayfa Yönlendirmesi
+  Dosya : ana_uygulama.py veya rota yapılandırması
+  İş    :
+    - GET / → public/chat.html döndür
+    - Eski GET / → /dashboard'a 301 yönlendirme ekle
+    - Navigasyon linklerini güncelle (mevcut HTML'lerde /dashboard)
+  Test  : Browser ile GET / kontrolü
+  Süre  : ~30 dakika
+
+Adım 6: Ajan Modu Entegrasyonu
+  Dosya : ajan_calistirici.py + api_rotalari.py
+  İş    :
+    - Mevcut ReAct döngüsünü SSE ile çalışacak şekilde adapte et
+    - Araç çağrılarını SSE event'lerine dönüştür (tool_start, tool_result)
+    - Streaming sırasında araç çağrısı UI panellerini güncelle
+    - Maks. iterasyon sınırını SSE üzerinden bildir
+  Test  : Ajan modunda "son BIST 100 haberlerini analiz et" testi
+  Süre  : ~4 saat
+
+Toplam Tahmini Süre: ~18–20 saat
+
+
+8. KABUL KRİTERLERİ
+--------------------------------------------------------------------------------
+
+KK-01 Streaming Yanıt
+  [ ] İlk token tarayıcıda < 1 saniyede görünür
+  [ ] Token akışı sırasında imleç animasyonu çalışır
+  [ ] Durdur butonu akışı temiz keser (SSE bağlantısı kapatılır)
+  [ ] Bağlantı kopunca EventSource otomatik yeniden bağlanır
+
+KK-02 Markdown Render
+  [ ] Kod blokları uygun dil renklendirmesiyle görünür
+  [ ] Kalın, italik, başlık, liste, tablo doğru render edilir
+  [ ] XSS koruması aktif (DOMPurify ile sanitize)
+  [ ] Streaming sırasında kısmi Markdown bozulmaz (debounce ile render)
+
+KK-03 Konuşma Geçmişi
+  [ ] Sayfa yenilenince session UUID ile geçmiş geri yüklenir
+  [ ] Sidebar'da en az 20 konuşma listelenir
+  [ ] Konuşma silinebilir (silme sonrası listeden kalkar)
+  [ ] Yeni konuşma butonu temiz bir oturum başlatır
+
+KK-04 Araç Modu
+  [ ] Ajan modunda araç çağrısı paneli UI'da görünür
+  [ ] Panel daraltılabilir/genişletilebilir
+  [ ] Başarılı araçlar yeşil, başarısız araçlar kırmızı ikon gösterir
+  [ ] Araç zinciri sıralı gösterilir
+
+KK-05 Anasayfa
+  [ ] GET / → chat arayüzü döner (dashboard değil)
+  [ ] /dashboard hâlâ erişilebilir
+  [ ] Header'da dashboard bağlantısı çalışır
+
+KK-06 Model Seçici
+  [ ] Dropdown'da mevcut modeller listelenir
+  [ ] Seçim localStorage'da saklanır
+  [ ] Sayfa yenilemede son seçilen model yüklenir
+
+KK-07 Responsive
+  [ ] 375px (iPhone SE) genişliğinde kullanılabilir
+  [ ] Sidebar mobilde hamburger menü ile açılır/kapanır
+  [ ] Input alanı mobilde ekranı taşmaz
+
+KK-08 Sistem Prompt
+  [ ] Ayarlar panelinden sistem prompt düzenlenebilir
+  [ ] Değişiklik yeni mesajdan itibaren geçerli olur
+  [ ] Varsayılan sistem prompta sıfırlama çalışır
+
+
+================================================================================
+Son güncelleme: 2026-04-02
+================================================================================
