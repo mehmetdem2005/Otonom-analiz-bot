@@ -361,6 +361,27 @@ def _make_hafiza_ara(memory: MemoryStore | None):
     return _tool_hafiza_ara
 
 
+def _make_dream_consolidate(memory: MemoryStore | None):
+    async def _tool_dream_consolidate(args: dict) -> dict:
+        if memory is None:
+            return {"status": "error", "message": "MemoryStore bağlı değil"}
+        from dream_consolidator import DreamConsolidator
+
+        force = bool(args.get("force", False))
+        min_sessions = int(args.get("min_sessions", 5))
+        min_hours = float(args.get("min_hours", 24.0))
+        similarity_threshold = float(args.get("similarity_threshold", 0.6))
+        dc = DreamConsolidator(memory)
+        return dc.maybe_dream(
+            force=force,
+            min_sessions=min_sessions,
+            min_hours=min_hours,
+            similarity_threshold=similarity_threshold,
+        )
+
+    return _tool_dream_consolidate
+
+
 def build_default_registry(base_dir: Path | str = ".", memory_store: MemoryStore | None = None) -> ToolRegistry:
     base = Path(base_dir).resolve()
     reg = ToolRegistry()
@@ -447,6 +468,14 @@ def build_default_registry(base_dir: Path | str = ".", memory_store: MemoryStore
             description="Ajan hafızasında semantik benzerlik ile kayıt arar",
             execute=_make_hafiza_ara(memory_store),
             risk_level="low",
+        )
+    )
+    reg.register(
+        ToolDefinition(
+            name="dream_consolidate",
+            description="Hafıza konsolidasyonunu (dream) tetikler: yinelenen kayıtları birleştirir ve önem skoru günceller",
+            execute=_make_dream_consolidate(memory_store),
+            risk_level="medium",
         )
     )
     return reg

@@ -1040,5 +1040,34 @@ EK GUNCELLEME-65 (2026-04-02)
 	- test_parallel_safe_tools_use_parallel_path_in_agent
 ✅ Regresyon dogrulamasi:
 	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 107/107 PASS
-❌ ADIM-3 semantik hafiza tam embedding entegrasyonu (sirada)
+EK GUNCELLEME-66 (2026-04-02)
+✅ ADIM-3 tamamlandı: Bellek ve Dream Konsolidasyon sistemi
+✅ dream_consolidator.py oluşturuldu:
+	- DreamConsolidator sınıfı: session tracking, trigger kontrolü, lock mekanizması
+	- record_session(session_id): oturum sayacı yönetimi
+	- should_dream(min_sessions, min_hours): tetik koşulları (24h + min 5 session)
+	- consolidate(similarity_threshold): duplikat tespiti + kayıt birleştirme + önem skoru
+	- maybe_dream(force, ...): tam döngü (trigger → lock → consolidate → status güncelle)
+	- Birleştirme: (path, kind) gruplama + token benzerliği kümeleme
+	- Önem skoru: hit_count * recency_factor (half-life 30 gün)
+	- Lock file: tek eş zamanlı dream, bayat kilit otomatik temizleme
+✅ web_arayuzu.py genisletildi:
+	- GET /api/memory/dream-status
+	- POST /api/memory/dream (force, min_sessions, min_hours, similarity_threshold)
+✅ react_tools.py genisletildi:
+	- dream_consolidate araci eklendi (11 araç toplam)
+✅ Yeni testler eklendi:
+	- test_dream_merges_duplicate_records
+	- test_dream_preserves_unique_records
+	- test_dream_importance_score_calculated
+	- test_dream_session_tracking
+	- test_dream_should_not_trigger_if_too_few_sessions
+	- test_dream_should_trigger_when_conditions_met
+	- test_maybe_dream_runs_when_forced
+	- test_maybe_dream_updates_status_after_run
+	- test_dream_lock_prevents_concurrent_runs
+	- test_dream_merged_hints_combined
+	- test_dream_consolidate_tool_registered_and_runs
+✅ Regresyon dogrulamasi:
+	- tum test suitlari = 118/118 PASS
 ❌ ADIM-5 API bagimsiz yerel birincil mod (sirada)

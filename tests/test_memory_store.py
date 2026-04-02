@@ -278,5 +278,202 @@ class MemoryStoreTests(unittest.TestCase):
         self.assertEqual(ms.recommended_mode(), "ann")
 
 
+class DreamConsolidatorTests(unittest.TestCase):
+    def _make_store(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        return MemoryStore(Path(self.tmp.name) / "mem.jsonl")
+
+    def tearDown(self):
+        if hasattr(self, "tmp"):
+            self.tmp.cleanup()
+
+    def test_dream_merges_duplicate_records(self):
+        """Duplicate records (same path+kind, similar objective) should be merged."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        # Add 3 duplicates with the same path and very similar objectives
+        for i in range(3):
+            ms.record_fix_attempt(
+                objective="fix authentication bug in login module",
+                path="auth.py",
+                line=10,
+                outcome="failure",
+                hint=f"hint-{i}",
+            )
+
+        dc = DreamConsolidator(ms)
+        result = dc.consolidate(similarity_threshold=0.5)
+
+        self.assertEqual(result["total_before"], 3)
+        self.assertEqual(result["merged_count"], 1)
+        self.assertEqual(result["removed_count"], 2)
+        self.assertEqual(result["kept_count"], 1)
+
+        # After merge, only 1 record should remain
+        recs = ms.load_all()
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0].meta.get("hit_count"), 3)
+        self.assertTrue(recs[0].meta.get("dream_merged"))
+
+    def test_dream_preserves_unique_records(self):
+        """Records with different paths should not be merged."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        ms.record_fix_attempt(objective="fix login", path="auth.py", line=1, outcome="failure")
+        ms.record_fix_attempt(objective="fix logging", path="logger.py", line=5, outcome="failure")
+        ms.record_fix_attempt(objective="fix config", path="config.py", line=20, outcome="success")
+
+        dc = DreamConsolidator(ms)
+        result = dc.consolidate(similarity_threshold=0.6)
+
+        # All 3 are on different paths, none should merge
+        self.assertEqual(result["merged_count"], 0)
+        self.assertEqual(result["removed_count"], 0)
+        self.assertEqual(result["kept_count"], 3)
+
+    def test_dream_importance_score_calculated(self):
+        """Merged records must have importance_score > 0."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        for _ in range(4):
+            ms.record_fix_attempt(
+                objective="fix database connection timeout error",
+                path="db.py",
+                line=50,
+                outcome="failure",
+                hint="check pool size",
+            )
+
+        dc = DreamConsolidator(ms)
+        dc.consolidate(similarity_threshold=0.5)
+
+        recs = ms.load_all()
+        self.assertEqual(len(recs), 1)
+        score = recs[0].meta.get("importance_score", 0)
+        self.assertGreater(score, 0)
+
+    def test_dream_session_tracking(self):
+        """record_session increments sessions_since_dream counter."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        dc = DreamConsolidator(ms)
+
+        for sid in ["sess-1", "sess-2", "sess-3"]:
+            dc.record_session(sid)
+
+        st = dc.get_status()
+        self.assertEqual(st["sessions_since_dream"], 3)
+        self.assertIn("sess-1", st["session_ids"])
+
+    def test_dream_should_not_trigger_if_too_few_sessions(self):
+        """should_dream returns False if sessions_since_dream < min_sessions."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        dc = DreamConsolidator(ms)
+        dc.record_session("s1")
+        dc.record_session("s2")
+
+        ok, reason = dc.should_dream(min_sessions=5, min_hours=0.0)
+        self.assertFalse(ok)
+        self.assertIn("sessions_since_dream", reason)
+
+    def test_dream_should_trigger_when_conditions_met(self):
+        """should_dream returns True when session count and time conditions are met."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        dc = DreamConsolidator(ms)
+
+        for i in range(5):
+            dc.record_session(f"sess-{i}")
+
+        ok, reason = dc.should_dream(min_sessions=5, min_hours=0.0)
+        self.assertTrue(ok)
+
+    def test_maybe_dream_runs_when_forced(self):
+        """maybe_dream(force=True) runs consolidation ignoring trigger conditions."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        for _ in range(2):
+            ms.record_fix_attempt(
+                objective="fix the same bug again",
+                path="app.py",
+                line=1,
+                outcome="failure",
+                hint="check imports",
+            )
+
+        dc = DreamConsolidator(ms)
+        result = dc.maybe_dream(force=True, similarity_threshold=0.4)
+
+        self.assertTrue(result["ran"])
+        self.assertEqual(result["reason"], "consolidated")
+        self.assertIsNotNone(result.get("result"))
+
+    def test_maybe_dream_updates_status_after_run(self):
+        """After a successful dream, status resets session count and records timestamp."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        dc = DreamConsolidator(ms)
+
+        for i in range(5):
+            dc.record_session(f"s-{i}")
+
+        dc.maybe_dream(force=True)
+
+        st = dc.get_status()
+        self.assertEqual(st["sessions_since_dream"], 0)
+        self.assertIsNotNone(st["last_dream_ts"])
+        self.assertEqual(st["total_dreams"], 1)
+
+    def test_dream_lock_prevents_concurrent_runs(self):
+        """If lock file exists and is fresh, maybe_dream returns lock_held."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        dc = DreamConsolidator(ms)
+
+        # Write a fresh lock file
+        dc.lock_path.parent.mkdir(parents=True, exist_ok=True)
+        dc.lock_path.write_text("99999", encoding="utf-8")
+
+        result = dc.maybe_dream(force=True)
+        self.assertFalse(result["ran"])
+        self.assertEqual(result["reason"], "lock_held")
+
+        # Cleanup
+        dc.lock_path.unlink()
+
+    def test_dream_merged_hints_combined(self):
+        """Merged record should combine hints from duplicate records."""
+        from dream_consolidator import DreamConsolidator
+
+        ms = self._make_store()
+        hints = ["check config", "verify env", "restart service"]
+        for h in hints:
+            ms.record_fix_attempt(
+                objective="service startup failure fix",
+                path="service.py",
+                line=1,
+                outcome="failure",
+                hint=h,
+            )
+
+        dc = DreamConsolidator(ms)
+        dc.consolidate(similarity_threshold=0.5)
+
+        recs = ms.load_all()
+        self.assertEqual(len(recs), 1)
+        # At least some hints combined
+        self.assertTrue(len(recs[0].hint) > 0)
+
+
 if __name__ == "__main__":
     unittest.main()

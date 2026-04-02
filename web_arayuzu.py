@@ -625,6 +625,51 @@ async def get_memory_benchmark(query: str, limit: int = 10, repeats: int = 5, pa
         return {"error": str(e), "query": query, "records": 0, "index_records": 0, "modes": {}}
 
 
+@app.get("/api/memory/dream-status")
+async def get_memory_dream_status():
+    """Dream konsolidasyon durumunu döndürür (son dream, session sayısı, toplam dream)."""
+    try:
+        from memory_store import MemoryStore
+        from dream_consolidator import DreamConsolidator
+
+        ms = MemoryStore()
+        dc = DreamConsolidator(ms)
+        st = dc.get_status()
+        ok, reason = dc.should_dream()
+        return {
+            "status": st,
+            "ready_to_dream": ok,
+            "ready_reason": reason,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/memory/dream")
+async def trigger_memory_dream(
+    force: bool = False,
+    min_sessions: int = 5,
+    min_hours: float = 24.0,
+    similarity_threshold: float = 0.6,
+):
+    """Dream konsolidasyonunu tetikler. force=true ise trigger koşulları atlanır."""
+    try:
+        from memory_store import MemoryStore
+        from dream_consolidator import DreamConsolidator
+
+        ms = MemoryStore()
+        dc = DreamConsolidator(ms)
+        result = dc.maybe_dream(
+            force=force,
+            min_sessions=min_sessions,
+            min_hours=min_hours,
+            similarity_threshold=similarity_threshold,
+        )
+        return result
+    except Exception as e:
+        return {"ran": False, "reason": f"exception:{e}", "result": None}
+
+
 @app.get("/api/evaluator/summary")
 async def get_evaluator_summary(lines: int = 1000, days: float = 7.0):
     """Ajan kalitesini trace + hafiza sinyalleri ile ozetler."""
