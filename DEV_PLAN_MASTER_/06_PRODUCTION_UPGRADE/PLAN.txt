@@ -15,19 +15,27 @@ Mevcut sistemin üretim için yetersiz olan yerleri:
    - Gerçek sorgu/filtreleme yok (tümü Python'da)
    - Yedekleme/replikasyon altyapısı yok
 
-2. ARAYÜZ — Polling tabanlı dashboard:
+2. BACKEND — Node.js katmanı silindi:
+   - Sistemin ilk versiyonunda web arayüzü Node.js (Express) üzerinden
+     sunuluyordu. Bu katman tamamen kaldırıldı.
+   - Geriye kalan web_arayuzu.py (FastAPI) şu anda hem API sunucusu
+     hem de statik dosya sunucusu görevini tek süreçte üstleniyor.
+   - Bu mimari üretim yükü altında darboğaz yaratır; gunicorn worker
+     mimarisi ve reverse proxy (nginx) olmadan ölçeklenemez.
+
+3. ARAYÜZ — Polling tabanlı dashboard:
    - Her 5s'de bir /api/* endpoint'leri çağrılıyor
    - Gerçek zamanlı değil, gecikme var
    - Mobil uyumlu değil
    - Grafik kütüphanesi yok (canvas ile sıfırdan çiziliyor)
 
-3. ARAÇLAR — Bazı araçlar simülasyon modunda:
+4. ARAÇLAR — Bazı araçlar simülasyon modunda:
    - X/Twitter yayını: gerçek OAuth 1.0a yok
    - Web arama: gerçek SerpAPI/Tavily entegrasyonu eksik
    - Kod çalıştırma: Docker sandbox yok, güvenlik riski
    - Dosya sistemi: realpath kontrollü ama kum havuzu yok
 
-4. GÜVENİLİRLİK — Üretim için eksikler:
+5. GÜVENİLİRLİK — Üretim için eksikler:
    - Yapılandırılmış hata işleme yok (her yerde bare except)
    - Request ID / correlation ID yok
    - Rate limiting yok
@@ -227,3 +235,29 @@ Bu plan için ön koşullar:
 ❌ PostgreSQL sunucu (kurulacak)
 ❌ Docker kurulu ortam (gerekli)
 ❌ API anahtarları (SerpAPI, Twitter OAuth)
+
+────────────────────────────────────────────────────────────
+TAHMİNİ SÜRE
+────────────────────────────────────────────────────────────
+
+Mil taşı    Bileşenler          Tahmini süre    Kümülatif
+──────────────────────────────────────────────────────────
+M-1         API-1               2 gün           Hafta 1
+M-2         OPS-1 (temel)       2-3 gün         Hafta 1
+M-3         DB-1                3-4 gün         Hafta 1-2
+M-4         DB-2                2-3 gün         Hafta 2
+M-5         TOOL-1              3-5 gün         Hafta 2-3
+M-6         UI-1                3-4 gün         Hafta 3
+M-7         OPS-1 (monitoring)  2 gün           Hafta 3-4
+
+Toplam tahmini: 3-4 hafta (tek geliştirici, tam zamanlı).
+M-1 ve M-2 kısmen paralel yürütülebilir; bu durumda 2.5 haftaya
+indirilebilir.
+
+Risk notu:
+  - Docker sandbox (TOOL-1): ortam kısıtı varsa +2-3 gün sapabilir.
+  - pgvector hosting ortamında yoksa FAISS fallback planı devreye
+    girer (+1 gün).
+  - Node.js bağımlılığı kalmadığı için frontend taşıma maliyeti düşük;
+    ancak WebSocket (UI-1) gerçek zamanlı test altyapısı gerektirir
+    (+1 gün test yazımı).
