@@ -1,0 +1,25 @@
+KULLANICI ISTEGI:
+- "devam"
+
+YAPILANLAR (BU TUR):
+1) Trend canary kararina mevsimsellik (saatlik periodiklik) kalibrasyonu eklendi:
+   - quality_evaluator.py
+   - trend_canary_decision(..., use_seasonality, seasonality_lookback_days)
+   - _seasonality_adjustment(...) ile hour-of-day baseline ayari
+2) API genisletmesi:
+   - /api/evaluator/trend-canary-decision endpointine
+     - use_seasonality
+     - seasonality_lookback_days
+     parametreleri eklendi
+3) AgentCore entegrasyonu:
+   - AGENT_CANARY_TREND_SEASONALITY=1
+   - AGENT_CANARY_TREND_SEASONALITY_DAYS=<int>
+4) Trend karar cevabina seasonality metadata eklendi:
+   - {enabled, lookback_days, hour_baseline, hour_observed, adjustment}
+5) Test kapsami genisletildi:
+   - test_trend_canary_decision_seasonality_metadata
+   - test_runtime_canary_policy_uses_trend_seasonality_mode
+
+DOGRULAMA:
+- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+- Sonuc: 64/64 PASS

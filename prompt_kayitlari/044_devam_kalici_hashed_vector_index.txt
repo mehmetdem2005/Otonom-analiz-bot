@@ -1,0 +1,22 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- MemoryStore icin kalici hashed vector index sidecar eklendi
+- Yeni index dosyasi: memory dosyasinin yaninda *.hindex.jsonl
+- Her yeni kayitta index'e de ekleme yapiliyor
+- Index tutarlilik kontrolu eklendi:
+  - data satir sayisi != index satir sayisi ise otomatik rebuild
+- Rebuild ve restart senaryosu test edildi
+- Embedding modunda semantik arama index uzerinden calisacak sekilde optimize edildi
+
+Yeni teknikler:
+- rebuild_hash_index()
+- ensure_hash_index()
+- _iter_hash_index()
+- sparse vector serialize/deserialize (vec <-> pairs)
+
+Testler:
+- tests.test_memory_store: 16/16 PASS
+- tests.test_react_tools: 13/13 PASS

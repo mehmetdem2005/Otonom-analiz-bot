@@ -1,0 +1,12 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- ajan.py icine ReAct onay politikasi eklendi:
+  - varsayilan otonom onay
+  - AGENT_REACT_REQUIRE_MANUAL_CONFIRM=1 ile manuel mod
+- AgentCore test-gate tetikleyici keyword listesi duzeltildi (false positive fix)
+- React test seti yeniden kosuldu: 10/10 PASS
+- Backend AGENT_REACT_CORE_ENABLED=1 ile yeniden baslatildi.
+- Dashboard endpoint 200 ve trace filtreli endpoint cevap veriyor.

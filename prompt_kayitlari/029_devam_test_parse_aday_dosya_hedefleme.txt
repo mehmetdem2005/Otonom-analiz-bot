@@ -1,0 +1,14 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- AgentCore test cikti parser eklendi:
+  - traceback ve path:line kalibindan aday dosya/satir hedefleri cikariliyor
+- Test fail + bugfix objective durumunda:
+  - dosya_oku aksiyonu yoksa aday dosya icin dosya_oku otomatik append
+  - test_calistir retest otomatik append
+- Yeni unit test eklendi:
+  - test_failed_test_appends_candidate_file_read
+- ReAct test seti sonucu: 13/13 PASS
+- Backend AGENT_REACT_CORE_ENABLED=1 ile yeniden baslatildi.

@@ -1,0 +1,24 @@
+[KULLANICI PROMPT OZETI]
+- "devam et" istegi kapsaminda kalan bir sonraki maddeyi otonom tamamla.
+- Risk Tani panelindeki acik is: snapshot bazli mini trend dagilimi karti.
+- Uygulama + regresyon + plan/prompt kaydi birlikte tamamla.
+
+[YAPILANLAR]
+- public/dashboard.html
+  - Risk Tani paneline "Snapshot Mini Trend Dagilimi" alani eklendi (riskMiniTrendView)
+  - renderSnapshotMiniTrend(items) fonksiyonu eklendi
+  - Dagilim metrikleri eklendi: promote/hold/rollback sayilari
+  - Ortalama metrikler eklendi: mean sync_risk + mean confidence
+  - Rolling karsilastirma eklendi: son 5 vs ilk 5 snapshot delta risk/conf
+  - loadRiskDiagnosticsView(...) icinde mini trend render baglantisi eklendi
+- plan_ve_durum_listesi.txt
+  - EK GUNCELLEME-61 eklendi
+
+[ORTAM DUZELTMESI]
+- unittest calisirken eksik bagimlilik bulundu: aiofiles
+- Python ortam configure edildi ve paket kuruldu:
+  - install: aiofiles
+
+[TEST]
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q
+- Sonuc: 101/101 PASS

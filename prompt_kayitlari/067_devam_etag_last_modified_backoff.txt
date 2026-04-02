@@ -1,0 +1,34 @@
+Kullanici istegi: "tamam devam" + "hepsini yap ve diger adimlari"
+
+Yapilanlar (EK GUNCELLEME-43):
+- quality_evaluator.py icinde uzak sync icin ag-verimli kosullu fetch eklendi:
+  - If-None-Match (ETag)
+  - If-Modified-Since (Last-Modified)
+  - HTTP 304 durumunda noop_remote_not_modified
+- Yeni fonksiyonel katmanlar:
+  - _load_calendar_overrides_from_source_with_meta(...)
+  - fetch metadata: http_status, http_etag, http_last_modified
+- Uzak kaynaktan 304 gelirse:
+  - merge=False olsa bile mevcut takvim korunur
+  - status = noop_remote_not_modified
+- Sync telemetry genisletildi:
+  - changed, source_hash, http_status, http_etag, http_last_modified
+- Error/backoff stratejisi eklendi:
+  - consecutive_failures
+  - backoff_sec
+  - next_retry_at
+  - AGENT_CANARY_CALENDAR_SYNC_BACKOFF_BASE_SEC
+  - AGENT_CANARY_CALENDAR_SYNC_MAX_BACKOFF_SEC
+- maybe_auto_sync_calendar_overrides(...)
+  - next_retry_at aktifse status=cooldown, reason=backoff_active doner
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_remote_304_uses_conditional_headers_and_noop
+  - test_calendar_sync_error_sets_exponential_backoff
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 48/48 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 81/81 PASS

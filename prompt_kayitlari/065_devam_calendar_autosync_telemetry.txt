@@ -1,0 +1,30 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-41):
+- quality_evaluator.py icine takvim sync telemetry ve stale-based auto-refresh katmani eklendi.
+- Yeni yardimci yapilar:
+  - _calendar_sync_status_path()
+  - get_calendar_sync_status()
+  - _write_calendar_sync_status(...)
+  - _read_calendar_overrides_file()
+  - maybe_auto_sync_calendar_overrides(force=False)
+- Sync davranisi genisletildi:
+  - Her sync sonunda calendar_sync_status.json benzeri durum dosyasi yazilir
+  - status, source, imported, written, started_at, finished_at, error gibi alanlar kaydedilir
+  - AGENT_CANARY_CALENDAR_AUTO_SYNC=1 ise ve status stale ise sync otomatik tetiklenebilir
+  - AGENT_CANARY_CALENDAR_SYNC_INTERVAL_SEC ile stale araligi kontrol edilir
+  - AGENT_CANARY_CALENDAR_SYNC_MERGE ile auto-sync merge/replace modu ayarlanir
+- web_arayuzu.py icine yeni endpointler eklendi:
+  - GET /api/evaluator/calendar-sync-status
+  - POST /api/evaluator/calendar-sync-auto
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_writes_status_telemetry_file
+  - test_calendar_auto_sync_refreshes_when_status_is_stale
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 44/44 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 77/77 PASS

@@ -1,0 +1,17 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- AgentCore:
+  - test fail parser candidate scoring eklendi
+  - dosya_yaz sonucu diff/backup ozetini history'ye ekleme eklendi
+- react_tools:
+  - dosya_yaz structured JSON cikti + backupPath + diff
+  - dosya_geri_al araci eklendi
+  - dosya_oku line-window destegi aktif
+- Unit testler guncellendi/eklendi:
+  - test_extract_fix_candidates_ranking
+  - test_file_write_creates_backup_and_rollback
+- ReAct test seti: 16/16 PASS
+- Backend ReAct modunda yeniden baslatildi, 8000:200 dogrulandi.

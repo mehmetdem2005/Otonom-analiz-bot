@@ -1,0 +1,21 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- MemoryStore icin performans gorunurlugu eklendi
+- Yeni helperlar:
+  - recommended_mode()
+  - benchmark_search(query, limit, repeats, path)
+- Mode benchmarklari: overlap, embedding, auto (+ model varsa model)
+- Cikti metrikleri: runs, avg_ms, min_ms, max_ms, result_count
+- API genisletmesi:
+  - /api/memory/recommended-mode
+  - /api/memory/benchmark
+- Testler eklendi:
+  - test_recommended_mode_empty_store
+  - test_benchmark_search_returns_mode_stats
+
+Dogrulama:
+- tests.test_memory_store: 18/18 PASS
+- tests.test_react_tools: 13/13 PASS

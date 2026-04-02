@@ -1,0 +1,28 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-50):
+- quality_evaluator.py icinde trend skor hesaplamasi icin opsiyonel EWMA destegi eklendi.
+- Yeni env ayarlari:
+  - AGENT_CANARY_SYNC_TREND_EWMA (0/1)
+  - AGENT_CANARY_SYNC_TREND_EWMA_ALPHA (0.05..0.95 clamp)
+- trend_summary icine ewma metadata eklendi:
+  - enabled
+  - alpha
+- Anomaly threshold katsayilari env ile konfigurabl hale getirildi:
+  - AGENT_CANARY_SYNC_ANOMALY_BASE_DELTA
+  - AGENT_CANARY_SYNC_ANOMALY_VOL_COEF
+  - AGENT_CANARY_SYNC_ANOMALY_MIN_SHORT_ATTEMPTS
+  - AGENT_CANARY_SYNC_ANOMALY_MIN_LONG_ATTEMPTS
+- Dinamik esik bu katsayilar ile hesaplanacak sekilde guncellendi.
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_trend_ewma_toggle_changes_score
+  - test_calendar_sync_trend_threshold_uses_env_coefficients
+  - trend metadata varlik kontrolleri eklendi
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 54/54 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 87/87 PASS

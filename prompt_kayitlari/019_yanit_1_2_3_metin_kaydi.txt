@@ -1,0 +1,8 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"Yanıt 1 ... Yanıt 3 ... yukardaki metni DEV_PLAN_MASTER_ klasorunun içinde bir tex içine yaz"
+
+Yapilan:
+- DEV_PLAN_MASTER_ klasoru altina metin dosyasi olusturuldu.
+- Dosya: DEV_PLAN_MASTER_/yanit_1_2_3_metin.txt
+- Icerik, kullanicinin verdigi metinle birebir yazildi.

@@ -1,0 +1,27 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-40):
+- quality_evaluator.py icindeki takvim senkron katmani ICS takvim formatini da destekleyecek sekilde genisletildi.
+- Yeni yardimci yapilar:
+  - _slugify_label(...)
+  - _parse_ics_datetime(...)
+  - _parse_ics_calendar_overrides(...)
+- _load_calendar_overrides_from_source(...)
+  artik .ics uzantili veya BEGIN:VCALENDAR icerikli kaynaklari otomatik parse ediyor.
+- ICS import davranisi:
+  - SUMMARY -> label (slug)
+  - DTSTART -> date / start_date
+  - DTEND -> end_date (gun bazli etkinlikte inclusive olacak sekilde -1 gun)
+  - X-SEVERITY / SEVERITY / PRIORITY / CATEGORIES -> severity
+- Bu sayede dis takvim saglayicisindan gelen .ics feed'ler JSON'a cevrilmeden dogrudan senkronize edilebiliyor.
+
+Testler:
+- tests/test_quality_evaluator.py icine yeni test eklendi:
+  - test_calendar_sync_imports_ics_events
+- Test, hem tek gunluk hem tarih aralikli ICS event importunu ve severity donusumunu dogruluyor.
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 42/42 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 75/75 PASS

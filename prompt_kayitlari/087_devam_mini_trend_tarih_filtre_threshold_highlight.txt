@@ -1,0 +1,24 @@
+[KULLANICI PROMPT OZETI]
+- Mini trend kartina tarih filtresi ve risk threshold highlight'ı ekle.
+- Zaman araligi secimine gore snapshot filtreleme yap.
+- Sparkline ve mini-bar'lara threshold visual layer'ı ekle.
+- Regresyon + plan/prompt kaydi tamamla.
+
+[YAPILANLAR]
+- public/dashboard.html
+  - Mini trend paneline tarih filtre butonlari eklendi: Tümü / 1h / 6h / 24h
+  - setMiniTrendTimeRange() fonksiyonu eklendi
+  - renderSnapshotMiniTrend() icinde zaman filtre mantigi eklendi
+  - Filtered array'e dagitim/ortalama/rolling metrikleri uygulanmasi
+  - Mini bar arka renk: meanRisk'e gore threshold coloring (red #f87171 > 0.6, orange #f59e0b > 0.4, green #22c55e)
+  - Mini bar border renk: meanRisk'e gore darkened shade (#dc2626, #ea580c, #16a34a)
+  - Sparkline'lara 0.4 risk level reference line eklendi (gray #64748b)
+  - riskTimeseriesChart render - periyodik guncelleme (5s interval)
+- plan_ve_durum_listesi.txt
+  - EK GUNCELLEME-63 eklendi
+- Ortam duzeltmesi:
+  - n hesaplamasi: arr.length -> filtered.length cevirilerek zaman filtre ile uyumlu hale getirildi
+
+[TEST]
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q
+- Sonuc: 101/101 PASS

@@ -1,0 +1,18 @@
+[KULLANICI PROMPT OZETI]
+- "evet" onayi ile onceki adimdaki onerilen iyilestirmeyi uygula.
+- Snapshot mini trend kartina sparkline/mini-bar gorsel katmani ekle.
+- Regresyonu kos ve plan/prompt kaydini tamamla.
+
+[YAPILANLAR]
+- public/dashboard.html
+  - renderSnapshotMiniTrend(...) fonksiyonu genisletildi
+  - Karar dagilimi icin mini-bar satirlari eklendi (promote/hold/rollback/other)
+  - sync_risk sparkline SVG eklendi
+  - confidence sparkline SVG eklendi
+  - Mevcut dagilim + ortalama + rolling metrik satirlari korundu
+- plan_ve_durum_listesi.txt
+  - EK GUNCELLEME-62 eklendi
+
+[TEST]
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q
+- Sonuc: 101/101 PASS

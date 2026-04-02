@@ -1,0 +1,24 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-49):
+- quality_evaluator.py icinde trend anomaly karari sabit esikten dinamik/volatilite-duyarli esige tasindi.
+- Yeni trend_summary alanlari:
+  - volatility_24h
+  - anomaly_threshold
+- Yeni mantik:
+  - long window (24h) outcome agirliklarindan volatilite hesaplanir
+  - anomaly_threshold = -(0.25 + 0.35 * clamp(volatility, 0..1))
+  - volatilite arttikca anomaly esigi daha negatif olur (false positive azalir)
+- Mevcut anomaly karari bu adaptif esige gore verilir.
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - trend field varlik kontrolleri (volatility_24h, anomaly_threshold)
+  - yeni test: test_calendar_sync_trend_threshold_adapts_to_volatility
+  - mevcut anomaly testinde yeni alan kontrolleri eklendi
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 52/52 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 85/85 PASS

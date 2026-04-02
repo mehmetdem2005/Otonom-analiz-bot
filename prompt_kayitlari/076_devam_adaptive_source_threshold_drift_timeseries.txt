@@ -1,0 +1,31 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-52):
+- quality_evaluator.py icinde trend anomaly threshold hesaplamasi source_type bazli adaptif kalibrasyon ile genisletildi.
+- Yeni env ayarlari:
+  - AGENT_CANARY_SYNC_ANOMALY_SOURCE_COEF
+  - AGENT_CANARY_SYNC_ANOMALY_DRIFT_COEF
+  - AGENT_CANARY_SYNC_DRIFT_TREND_SPAN
+- Source_type adaptif kalibrasyon:
+  - Kisa pencere source_type dagilimi + tarihsel source_type success_rate kullanilarak source_adaptive_penalty hesaplaniyor.
+  - Bu penalty anomaly_threshold hesabina dahil edildi.
+
+- Drift zaman-serisi skoru eklendi:
+  - trend_summary.drift_time_series {points, rolling_span, series, slope, score}
+  - score > 0, agirlikli outcome trendinin bozulma yonunu temsil eder.
+  - Drift riski anomaly_threshold hesabina AGENT_CANARY_SYNC_ANOMALY_DRIFT_COEF ile dahil edildi.
+
+- Trend summary genisletmeleri:
+  - source_adaptive_penalty
+  - drift_time_series
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_trend_source_penalty_makes_threshold_stricter
+  - test_calendar_sync_trend_drift_time_series_score_present
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 58/58 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 91/91 PASS

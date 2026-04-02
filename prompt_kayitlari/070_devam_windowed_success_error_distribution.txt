@@ -1,0 +1,29 @@
+Kullanici istegi: "devam et"
+
+Yapilanlar (EK GUNCELLEME-46):
+- quality_evaluator.py icinde sync status analitigi genisletildi.
+- Yeni telemetry alanlari sync sonucu ve history icin guclendirildi:
+  - source_type
+  - outcome
+  - latency_ms
+- get_calendar_sync_status() icine kayan pencere metrikleri eklendi:
+  - window_summary.1h
+  - window_summary.24h
+  - attempts, success, success_rate, errors
+  - error_types dagilimi (RuntimeError/ValueError vb.)
+- history entry yapisi zenginlestirildi:
+  - outcome
+  - source_type
+  - latency_ms
+  - backoff_jitter
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - test_calendar_sync_status_keeps_bounded_history -> window_summary dogrulamasi
+  - yeni test: test_calendar_sync_status_window_error_type_distribution
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 50/50 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 83/83 PASS

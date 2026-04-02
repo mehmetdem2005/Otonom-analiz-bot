@@ -1,0 +1,21 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-31):
+- quality_evaluator.py icinde mevsimsellik kalibrasyonu saat bazindan hafta-gunu+saat (dow-hour) matrisine genisletildi.
+- Seasonality hesaplamasinda iki seviye baseline uretiliyor:
+  1) hour_baseline
+  2) dow_hour_baseline (varsa tercih edilir)
+- Karar duzeltmesi (adjustment), global baseline ile kullanilan baseline farkindan turetilmeye devam eder.
+- Metadata zenginlestirildi:
+  - dow_hour_baseline
+  - dow_observed
+- tests/test_quality_evaluator.py genisletildi:
+  - seasonality metadata testine yeni alan dogrulamalari eklendi
+  - dow-hour fallback davranisi icin ek test eklendi
+
+Dogrulama:
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+- Sonuc: 32/32 PASS
+
+Not:
+- Bu adim, bir onceki plandaki "dow-hour matrisi" acik maddesini kapatir.

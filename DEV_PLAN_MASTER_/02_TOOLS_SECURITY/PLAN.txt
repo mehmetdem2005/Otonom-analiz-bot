@@ -1,0 +1,30 @@
+BOLUM 2 - ARAC SISTEMI VE GUVENLIK
+
+HEDEF
+- Agentin araclari guvenli, denetlenebilir ve olculebilir olsun.
+
+ARACLAR (ILK SET)
+- web_ara(query)
+- sayfa_oku(url)
+- dosya_oku(path)
+- dosya_yaz(path, content)
+- kod_calistir_python(code, timeout)
+- test_calistir(command)
+- push_notification(title, message)
+
+GUVENLIK KATI
+- Tool registry + schema dogrulama (arg validation)
+- Risk siniflari: low/medium/high/critical
+- Path allowlist (repo ici), command allowlist (tehlikeli komut blok)
+- Runtime limitleri: sure, cikti boyutu, tekrar sayisi
+- Sandbox: izole calisma klasoru + bagimli izinler
+
+PARALEL CALISMA
+- Bagimsiz read/search isleri paralel
+- Yan etki olusturan yazma/komut isleri kontrollu seri
+- Hata varsa tool sonucu LLM'e geri baglanir, agent akisi devam eder
+
+KABUL KRITERI
+- Tehlikeli komutlar bloklanip loglanir.
+- Paralel tool akisi performans kazanci saglar.
+- Tek tool hatasi tum sistemi dusurmez.

@@ -1,0 +1,20 @@
+Kullanici istegi: "devam et"
+
+Yapilanlar (EK GUNCELLEME-59):
+- Dashboard Risk Tani paneli gelistirildi (public/dashboard.html):
+  - Risk bilesenleri zaman-serisi icin SVG cizgi/alan benzeri chart gorunumu eklendi
+  - Interaktif threshold simulator eklendi
+    - Girdiler: delta, base, vol_coef, drift_coef, latency_coef
+    - Sliderlar: volatility, drift_risk, latency_risk, source_penalty
+    - Cikti: threshold, delta, anomaly/stable karari
+  - Diagnostics verisinden simulator otomatik prefill
+  - Aktif panelde periyodik yenileme korunarak chart/simulator ile senkron calisma
+
+- Risk paneli backend akislariyla hizalandi:
+  - /api/evaluator/trend-diagnostics
+  - /api/evaluator/risk-components-timeseries
+  - /api/evaluator/trend-explainability-snapshots
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 101/101 PASS

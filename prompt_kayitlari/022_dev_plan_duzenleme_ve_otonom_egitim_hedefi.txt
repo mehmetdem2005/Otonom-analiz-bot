@@ -1,0 +1,16 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"plani duzene sok ... tam otonom 0 insan mudahalesi ile gelissin"
+
+Yapilanlar:
+- DEV_PLAN_MASTER_ klasoru moduler plan yapisina ayrildi:
+  - 00_INDEX.txt
+  - 01_CORE_AGENT/PLAN.txt
+  - 02_TOOLS_SECURITY/PLAN.txt
+  - 03_MEMORY_DREAM/PLAN.txt
+  - 04_AUTONOMOUS_TRAINING/PLAN.txt
+  - 05_DEPLOY_GOVERNANCE/PLAN.txt
+- Ham yuklenen not dosyasi yeniden adlandirildi:
+  - DEV PLAN ALT PDFLER -> RAW_IMPORT_NOTES.txt
+- DEV_PLAN_MASTER.txt yeniden yazildi ve yeni modul yapisina baglandi.
+- Plan iceriginde 0 rutin mudahale hedefi, guvenlik devre kesici, lisans uyumlu kaynak havuzu ve API'den bagimsizlasma fazlari netlestirildi.

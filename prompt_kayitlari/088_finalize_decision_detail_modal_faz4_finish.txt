@@ -1,0 +1,29 @@
+[KULLANICI PROMPT OZETI]
+- "herşeyi yap plandan git bir an önce tamalayalim" komutu ile kalan tüm açık işleri hızlıca tamamla.
+- FAZ-4 Risk Tanı geliştirmelerini finalize et.
+- Karar detay modal ekle ve test guncelle.
+
+[YAPILANLAR]
+- public/dashboard.html
+  - riskMiniTrendModal dialog HTML'i eklendi (fixed overlay modal)
+  - openMiniTrendModal(decision) fonksiyonu eklendi
+  - closeMiniTrendModal() fonksiyonu eklendi
+  - Mini bar satırları tıklanabilir yapıldı (cursor:pointer; onclick)
+  - Modal içinde decision türüne ait snapshot'lar dinamik render ediliyor
+  - Snapshot detay: timestamp + sync_risk (risk-based left border coloring) + confidence
+  - Modal title dinamik güncellemesi (seçilen decision türü)
+  - Karar modalı: promote/hold/rollback/other filtrelemesi
+- plan_ve_durum_listesi.txt
+  - EK GUNCELLEME-64 eklendi (finalize)
+  - FAZ-4 Risk Tanı tamamlandı notu
+
+[TEST]
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q
+- Sonuc: 101/101 PASS
+
+[FAZA-4 OZET]
+- EK-45 ile başlandı (sync telemetrisi)
+- EK-64'te tamamlandı (karar detay modal)
+- 20 incremental update
+- Front-end: Risk Tanı panel + simulator + presets + history compare + mini trend (sparkline/mini-bar/time-filter/threshold-highlight/decision-modal)
+- Back-end: Telemetri + trend scoring + EWMA + anomaly + drift + source weighting + autotune + recency + latency regime + risk confidence + explainability + snapshot persistence

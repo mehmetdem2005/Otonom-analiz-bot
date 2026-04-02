@@ -1,0 +1,23 @@
+Kullanici istegi: "tamam tek tek sorma planla ve yap"
+
+Yapilanlar (EK GUNCELLEME-34):
+- quality_evaluator.py icinde mevsimsellik confidence modeline drift-aware sinyal eklendi.
+- trend_canary_decision icinde short-long skor farki (trend_drift) hesaplanip _seasonality_adjustment'e aktarildi.
+- Yeni confidence bilesenleri:
+  - drift_confidence
+  - trend_drift
+- Yeni confidence formulu:
+  confidence = sample_confidence * (0.5*variance_confidence + 0.3*volatility_confidence + 0.2*drift_confidence)
+- Drift buyukse (kisa/uzun pencere farki artmissa) seasonality kalibrasyonuna guven azaltiliyor.
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - seasonality metadata testi drift alanlarini da dogruluyor
+  - fallback testinde drift_confidence defaultu dogrulandi
+  - yeni test: test_seasonality_adjustment_drift_confidence_reduces_trust
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 34/34 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 67/67 PASS

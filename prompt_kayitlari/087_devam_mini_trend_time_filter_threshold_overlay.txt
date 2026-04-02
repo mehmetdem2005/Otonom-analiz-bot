@@ -1,0 +1,21 @@
+[KULLANICI PROMPT OZETI]
+- "ekle" istegi ile mini trend panelinin bir sonraki acik maddesini uygula.
+- Snapshot mini trend paneline zaman filtresi (1h/6h/24h/tumu) ve threshold highlight overlay ekle.
+- Regresyonu calistir, plan ve prompt kaydini guncelle.
+
+[YAPILANLAR]
+- public/dashboard.html
+  - Mini trend kontrol alani eklendi:
+    - riskMiniTrendWindow (all/24h/6h/1h)
+    - riskMiniTrendThreshold (0..1)
+  - Yeni durum degiskenleri eklendi:
+    - riskMiniTrendWindow
+    - riskMiniTrendThreshold
+  - initRiskMiniTrendControls() eklendi ve DOMContentLoaded akisina baglandi
+  - renderSnapshotMiniTrend(...) zaman penceresi filtresi uygulayacak sekilde genisletildi
+  - Sparkline icine threshold overlay (kesikli cizgi) eklendi
+  - Eşik ustu noktalar icin highlight (kirmizi circle) eklendi
+
+[TEST]
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q
+- Sonuc: 101/101 PASS

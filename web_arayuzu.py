@@ -19,6 +19,7 @@ from fastapi.responses import HTMLResponse
 import hafiza_yoneticisi as hm
 import llm_istemci as llm
 from orkestra import Orkestra
+from quality_evaluator import QualityEvaluator
 
 load_dotenv()
 
@@ -26,8 +27,52 @@ app = FastAPI(title="Otonom Ajan Sistemi")
 
 _orkestra: Orkestra = None
 _ws_baglantilar: Set[WebSocket] = set()
+_calendar_sync_task: asyncio.Task | None = None
 COZULEN_HATA_KLASOR = hm.KLASORLER["log"] / "cozulen_hatalar"
 COZULEN_HATA_KLASOR.mkdir(parents=True, exist_ok=True)
+
+
+async def _calendar_sync_loop():
+    while True:
+        try:
+            QualityEvaluator.maybe_auto_sync_calendar_overrides(force=False)
+        except Exception:
+            pass
+
+        try:
+            interval = int(os.getenv("AGENT_CANARY_CALENDAR_SCHEDULER_INTERVAL_SEC", "300"))
+        except Exception:
+            interval = 300
+        await asyncio.sleep(max(30, interval))
+
+
+@app.on_event("startup")
+async def startup_calendar_scheduler():
+    global _calendar_sync_task
+    if os.getenv("AGENT_CANARY_CALENDAR_SCHEDULER", "0").strip() != "1":
+        return
+    if _calendar_sync_task is not None and not _calendar_sync_task.done():
+        return
+
+    try:
+        QualityEvaluator.maybe_auto_sync_calendar_overrides(force=False)
+    except Exception:
+        pass
+    _calendar_sync_task = asyncio.create_task(_calendar_sync_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown_calendar_scheduler():
+    global _calendar_sync_task
+    if _calendar_sync_task is None:
+        return
+    _calendar_sync_task.cancel()
+    try:
+        await _calendar_sync_task
+    except asyncio.CancelledError:
+        pass
+    finally:
+        _calendar_sync_task = None
 
 
 def _cozulen_hata_dosya() -> Path:
@@ -503,26 +548,376 @@ async def get_memory_stats():
 
 
 @app.get("/api/memory/search")
-async def get_memory_search(query: str, limit: int = 10, path: str = ""):
+async def get_memory_search(
+    query: str,
+    limit: int = 10,
+    path: str = "",
+    mode: str = "overlap",
+    time_weight: float = 0.15,
+    half_life_days: float = 14.0,
+):
     """Hafıza kayıtlarında sorgu metnine göre semantik benzerlik araması yapar."""
     try:
         from memory_store import MemoryStore
 
         ms = MemoryStore()
-        results = ms.semantic_search(query=query, limit=limit, path=path)
+        results = ms.semantic_search(
+            query=query,
+            limit=limit,
+            path=path,
+            mode=mode,
+            time_weight=time_weight,
+            half_life_days=half_life_days,
+        )
         return {
             "query": query,
+            "mode": mode,
+            "time_weight": time_weight,
+            "half_life_days": half_life_days,
             "count": len(results),
             "results": [
                 {
                     "score": x["score"],
+                    "relevance": x.get("relevance"),
+                    "freshness": x.get("freshness"),
                     "record": x["record"].__dict__,
                 }
                 for x in results
             ],
         }
     except Exception as e:
-        return {"error": str(e), "query": query, "count": 0, "results": []}
+        return {
+            "error": str(e),
+            "query": query,
+            "mode": mode,
+            "time_weight": time_weight,
+            "half_life_days": half_life_days,
+            "count": 0,
+            "results": [],
+        }
+
+
+@app.get("/api/memory/recommended-mode")
+async def get_memory_recommended_mode():
+    """Hafıza araması için önerilen varsayılan modu döndürür."""
+    try:
+        from memory_store import MemoryStore
+
+        ms = MemoryStore()
+        return {
+            "recommended_mode": ms.recommended_mode(),
+            "records": ms._line_count(ms.path),
+            "index_records": ms._line_count(ms.index_path),
+        }
+    except Exception as e:
+        return {"error": str(e), "recommended_mode": "overlap", "records": 0, "index_records": 0}
+
+
+@app.get("/api/memory/benchmark")
+async def get_memory_benchmark(query: str, limit: int = 10, repeats: int = 5, path: str = ""):
+    """Semantik hafıza arama modlarının mikro-benchmark sonucunu döndürür."""
+    try:
+        from memory_store import MemoryStore
+
+        ms = MemoryStore()
+        return ms.benchmark_search(query=query, limit=limit, repeats=repeats, path=path)
+    except Exception as e:
+        return {"error": str(e), "query": query, "records": 0, "index_records": 0, "modes": {}}
+
+
+@app.get("/api/evaluator/summary")
+async def get_evaluator_summary(lines: int = 1000, days: float = 7.0):
+    """Ajan kalitesini trace + hafiza sinyalleri ile ozetler."""
+    try:
+        evaluator = QualityEvaluator(trace_dir=hm.KLASORLER["log"])
+        return evaluator.summary(lines=lines, days=days)
+    except Exception as e:
+        return {
+            "error": str(e),
+            "status": "critical",
+            "score": 0.0,
+            "trace": {},
+            "memory": {},
+            "promotion": {"ready": False, "reason": "exception"},
+        }
+
+
+@app.get("/api/evaluator/canary-decision")
+async def get_evaluator_canary_decision(
+    lines: int = 1000,
+    days: float = 7.0,
+    min_promote_score: float = 80.0,
+    rollback_score: float = 45.0,
+    max_denied: int = 5,
+    max_rollbacks: int = 2,
+    adaptive: bool = False,
+):
+    """Canary için promote/hold/rollback kararını döndürür."""
+    try:
+        evaluator = QualityEvaluator(trace_dir=hm.KLASORLER["log"])
+        summary = evaluator.summary(lines=lines, days=days)
+        canary = evaluator.canary_decision(
+            summary,
+            min_promote_score=min_promote_score,
+            rollback_score=rollback_score,
+            max_denied=max_denied,
+            max_rollbacks=max_rollbacks,
+            adaptive=adaptive,
+        )
+        return {
+            "status": summary.get("status"),
+            "score": summary.get("score"),
+            "decision": canary.get("decision"),
+            "reason": canary.get("reason", []),
+            "adaptive": bool(canary.get("adaptive", adaptive)),
+            "thresholds": canary.get("thresholds", {}),
+            "summary": summary,
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "decision": "hold",
+            "reason": ["exception"],
+            "adaptive": adaptive,
+            "thresholds": {
+                "min_promote_score": min_promote_score,
+                "rollback_score": rollback_score,
+                "max_denied": max_denied,
+                "max_rollbacks": max_rollbacks,
+            },
+        }
+
+
+@app.get("/api/evaluator/adaptive-thresholds")
+async def get_evaluator_adaptive_thresholds(
+    lines: int = 1000,
+    days: float = 7.0,
+    min_promote_base: float = 80.0,
+    rollback_base: float = 45.0,
+    max_denied_base: int = 5,
+    max_rollbacks_base: int = 2,
+):
+    """Canary icin dinamik threshold hesaplamasini dondurur."""
+    try:
+        evaluator = QualityEvaluator(trace_dir=hm.KLASORLER["log"])
+        summary = evaluator.summary(lines=lines, days=days)
+        thresholds = evaluator.adaptive_thresholds(
+            summary,
+            min_promote_base=min_promote_base,
+            rollback_base=rollback_base,
+            max_denied_base=max_denied_base,
+            max_rollbacks_base=max_rollbacks_base,
+        )
+        return {
+            "status": summary.get("status"),
+            "score": summary.get("score"),
+            "thresholds": thresholds,
+            "summary": summary,
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "thresholds": {
+                "min_promote_score": min_promote_base,
+                "rollback_score": rollback_base,
+                "max_denied": max_denied_base,
+                "max_rollbacks": max_rollbacks_base,
+                "signals": {},
+            },
+        }
+
+
+@app.get("/api/evaluator/trend-summary")
+async def get_evaluator_trend_summary(lines: int = 20000):
+    """1h/24h trend pencerelerinde evaluator metriklerini döndürür."""
+    try:
+        evaluator = QualityEvaluator(trace_dir=hm.KLASORLER["log"])
+        return evaluator.trend_window_summary(lines=lines)
+    except Exception as e:
+        return {"error": str(e), "windows": {}}
+
+
+@app.get("/api/evaluator/trend-canary-decision")
+async def get_evaluator_trend_canary_decision(
+    lines: int = 20000,
+    use_ewma: bool = False,
+    ewma_alpha: float = 0.35,
+    use_seasonality: bool = False,
+    seasonality_lookback_days: int = 14,
+):
+    """1h/24h trend karsilastirmasina gore canary kararini döndürür."""
+    try:
+        evaluator = QualityEvaluator(trace_dir=hm.KLASORLER["log"])
+        return evaluator.trend_canary_decision(
+            lines=lines,
+            use_ewma=use_ewma,
+            ewma_alpha=ewma_alpha,
+            use_seasonality=use_seasonality,
+            seasonality_lookback_days=seasonality_lookback_days,
+        )
+    except Exception as e:
+        return {
+            "error": str(e),
+            "decision": "hold",
+            "reason": ["exception"],
+            "ewma": {"enabled": use_ewma, "alpha": ewma_alpha},
+            "seasonality": {
+                "enabled": use_seasonality,
+                "lookback_days": seasonality_lookback_days,
+                "hour_baseline": None,
+                "hour_observed": None,
+                "adjustment": 0.0,
+            },
+            "trend": {"windows": {}},
+        }
+
+
+@app.get("/api/evaluator/trend-diagnostics")
+async def get_evaluator_trend_diagnostics(
+    lines: int = 20000,
+    use_ewma: bool = False,
+    ewma_alpha: float = 0.35,
+    use_seasonality: bool = False,
+    seasonality_lookback_days: int = 14,
+):
+    """Trend kararini, sync-risk verisini ve pencere detaylarini tek payload'da döndürür."""
+    try:
+        evaluator = QualityEvaluator(trace_dir=hm.KLASORLER["log"])
+        decision = evaluator.trend_canary_decision(
+            lines=lines,
+            use_ewma=use_ewma,
+            ewma_alpha=ewma_alpha,
+            use_seasonality=use_seasonality,
+            seasonality_lookback_days=seasonality_lookback_days,
+        )
+        sync_status = QualityEvaluator.get_calendar_sync_status()
+        return {
+            "decision": decision,
+            "trend": decision.get("trend", {}),
+            "sync_risk": decision.get("sync_risk", {}),
+            "explainability_tree": QualityEvaluator.build_trend_explainability_tree(decision, sync_status),
+            "snapshots_preview": QualityEvaluator.get_trend_explainability_snapshots(limit=10).get("items", []),
+            "calendar_sync": {
+                "status": sync_status.get("status") if isinstance(sync_status, dict) else None,
+                "ok": sync_status.get("ok") if isinstance(sync_status, dict) else None,
+                "trend_summary": (sync_status.get("trend_summary", {}) if isinstance(sync_status, dict) else {}),
+            },
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "decision": {
+                "decision": "hold",
+                "reason": ["exception"],
+                "sync_risk": {"enabled": True, "status": "error"},
+            },
+            "trend": {"windows": {}},
+            "sync_risk": {"enabled": True, "status": "error"},
+            "explainability_tree": {"root": "decision", "nodes": [], "leaves": []},
+            "snapshots_preview": [],
+            "calendar_sync": {"status": "error", "ok": False, "trend_summary": {}},
+        }
+
+
+@app.get("/api/evaluator/risk-components-timeseries")
+async def get_evaluator_risk_components_timeseries(
+    lookback_hours: int = 24,
+    bucket_minutes: int = 60,
+    max_points: int = 48,
+):
+    """Calendar sync risk bileşenlerinin zaman-serisini döndürür."""
+    try:
+        return QualityEvaluator.get_calendar_risk_components_timeseries(
+            lookback_hours=lookback_hours,
+            bucket_minutes=bucket_minutes,
+            max_points=max_points,
+        )
+    except Exception as e:
+        return {
+            "error": str(e),
+            "lookback_hours": lookback_hours,
+            "bucket_minutes": bucket_minutes,
+            "points": [],
+        }
+
+
+@app.get("/api/evaluator/trend-explainability-snapshots")
+async def get_evaluator_trend_explainability_snapshots(limit: int = 50):
+    """Persist edilen trend explainability snapshot kayıtlarını döndürür."""
+    try:
+        return QualityEvaluator.get_trend_explainability_snapshots(limit=limit)
+    except Exception as e:
+        return {"error": str(e), "items": []}
+
+
+@app.get("/api/evaluator/calendar-overrides")
+async def get_evaluator_calendar_overrides():
+    """Aktif takvim override kayitlarini döndürür."""
+    try:
+        rows = QualityEvaluator._load_calendar_overrides()
+        return {
+            "items": rows,
+            "count": len(rows),
+            "path": str(QualityEvaluator._calendar_file_path()),
+        }
+    except Exception as e:
+        return {"error": str(e), "items": [], "count": 0}
+
+
+@app.post("/api/evaluator/calendar-sync")
+async def post_evaluator_calendar_sync(request: Request):
+    """Dis JSON kaynaklarindan takvim override listesini senkronize eder."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    source = str(body.get("source", "")).strip() or None
+    merge = bool(body.get("merge", True))
+    try:
+        return QualityEvaluator.sync_calendar_overrides(source=source, merge=merge)
+    except Exception as e:
+        return {"ok": False, "error": str(e), "imported": 0, "written": 0}
+
+
+@app.get("/api/evaluator/calendar-sync-status")
+async def get_evaluator_calendar_sync_status():
+    """Takvim senkron durumunu ve son telemetri kaydini döndürür."""
+    try:
+        status = QualityEvaluator.get_calendar_sync_status()
+        status["scheduler"] = {
+            "enabled": os.getenv("AGENT_CANARY_CALENDAR_SCHEDULER", "0").strip() == "1",
+            "running": bool(_calendar_sync_task is not None and not _calendar_sync_task.done()),
+            "interval_sec": max(30, int(os.getenv("AGENT_CANARY_CALENDAR_SCHEDULER_INTERVAL_SEC", "300") or "300")),
+        }
+        status["auto_sync"] = {
+            "enabled": os.getenv("AGENT_CANARY_CALENDAR_AUTO_SYNC", "0").strip() == "1",
+            "interval_sec": max(60, int(os.getenv("AGENT_CANARY_CALENDAR_SYNC_INTERVAL_SEC", "21600") or "21600")),
+            "error_cooldown_sec": max(
+                60,
+                int(os.getenv("AGENT_CANARY_CALENDAR_SYNC_ERROR_COOLDOWN_SEC", "900") or "900"),
+            ),
+            "merge": os.getenv("AGENT_CANARY_CALENDAR_SYNC_MERGE", "1").strip() != "0",
+            "source": os.getenv("AGENT_CANARY_CALENDAR_SYNC_SOURCE", "").strip() or None,
+        }
+        return status
+    except Exception as e:
+        return {"ok": False, "status": "error", "error": str(e)}
+
+
+@app.post("/api/evaluator/calendar-sync-auto")
+async def post_evaluator_calendar_sync_auto(request: Request):
+    """Stale ise veya force=true ise takvim senkronunu tetikler."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    force = bool(body.get("force", False))
+    try:
+        return QualityEvaluator.maybe_auto_sync_calendar_overrides(force=force)
+    except Exception as e:
+        return {"ok": False, "status": "error", "error": str(e)}
 
 
 @app.get("/api/errors/recent")

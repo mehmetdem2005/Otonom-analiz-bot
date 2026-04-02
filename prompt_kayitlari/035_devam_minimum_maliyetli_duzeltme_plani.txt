@@ -1,0 +1,15 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- AgentCore'a deterministik minimum maliyetli duzeltme plani eklendi:
+  - _build_min_cost_fix_plan yardimcisi ile aday dosya/satirlardan aksiyon plani olusturuluyor
+  - test gate final reddi mesajina plan enjekte edildi
+  - auto rollback guidance mesajina plan enjekte edildi
+  - trace eventlerinde plan alani eklendi
+- Yeni unit test eklendi:
+  - test_build_min_cost_fix_plan_contains_ranked_targets
+- Dogrulama:
+  - /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest discover -s /workspaces/Otonom-analiz-bot/tests -t /workspaces/Otonom-analiz-bot -p 'test_react_*.py' -v
+  - Sonuc: 20/20 PASS

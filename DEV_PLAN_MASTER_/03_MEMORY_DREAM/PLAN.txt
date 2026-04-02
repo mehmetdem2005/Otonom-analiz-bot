@@ -1,0 +1,21 @@
+BOLUM 3 - BELLEK, BAGLAM, DREAM
+
+HEDEF
+- Agent durdur-baslat sonrasi unutmasin.
+- Gecmis kararlar yeni gorevlere semantik olarak tasinsin.
+
+MIMARI
+- Kisa sureli bellek: aktif oturum baglami
+- Uzun sureli bellek: vektor DB (ChromaDB) + metadata
+- Ogrenme kaydi: hypothesis, deneme, sonuc, skor, commit_ref
+- Session persistence: JSONL + snapshot
+
+DREAM/KONSOLIDASYON
+- Tetik: 24 saat + min 5 yeni oturum
+- Islem: cakiski tespiti, tekrar eden kayit birlestirme, onem skoru guncelleme
+- Kilit dosyasi: ayni anda tek dream islemi
+
+KABUL KRITERI
+- Agent gecmisten alakali bilgileri geri cagirir.
+- Bellek bozulmasi olmadan tekrar yukleme calisir.
+- Dream sonrasi baglam kalitesi metrikle artar.

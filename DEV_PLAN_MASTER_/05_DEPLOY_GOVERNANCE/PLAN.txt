@@ -1,0 +1,23 @@
+BOLUM 5 - DAGITIM, YONETISIM, GOZLENEBILIRLIK
+
+HEDEF
+- Sistem uzun sure calisirken kontrol kaybi yasamadan kendi kendini yonetsin.
+
+GOVERNANCE
+- Versioned plan + runbook
+- Her degisiklikte test sonucu, risk, rollback notu zorunlu
+- Agent eylem denetimi: kim, neyi, ne zaman, neden yapti
+
+OBSERVABILITY
+- Merkezi log: action trace, tool result, error stack
+- Dashboard: acik hata, cozulen hata, model performansi, ogrenme hizi
+- Konusma izi: ajanin arka karar metinleri kayitli
+
+DEPLOYMENT
+- Ortam ayri: dev/staging/prod
+- Guncelleme politikasi: canary + otomatik geri alma
+- Guvenlik: secret yonetimi, path policy, command policy
+
+KABUL KRITERI
+- Zincir kopmadan backend degisiklikleri canliya cikabilir.
+- Hata durumunda nedeni ve duzeltmesi logdan izlenebilir.

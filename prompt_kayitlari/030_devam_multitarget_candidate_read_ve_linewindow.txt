@@ -1,0 +1,15 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devamke" / "tamam hepsi olur" / "devam"
+
+Yapilanlar:
+- AgentCore test-fail hedefleme gelistirildi:
+  - traceback parse ile aday dosya/satir
+  - ilk 3 aday icin otomatik dosya_oku append
+  - line-window okuma (line-20 .. line+20)
+- react_tools.py dosya_oku aracina start_line/end_line destegi eklendi.
+- Yeni/gelistirilmis unit testler:
+  - test_file_read_line_window
+  - test_failed_test_appends_candidate_file_read (3 hedef)
+- ReAct test seti sonucu: 14/14 PASS
+- Backend AGENT_REACT_CORE_ENABLED=1 ile yeniden baslatildi, 8000:200.

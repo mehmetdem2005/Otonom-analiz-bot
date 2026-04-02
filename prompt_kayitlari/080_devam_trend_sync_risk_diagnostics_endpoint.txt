@@ -1,0 +1,31 @@
+Kullanici istegi: "tamam ne kaldi ise yap devam et"
+
+Yapilanlar (EK GUNCELLEME-56):
+- quality_evaluator.py icinde trend_canary_decision ciktisina sync_risk payload'i eklendi.
+- Yeni trend env ayarlari:
+  - AGENT_CANARY_TREND_SYNC_RISK
+  - AGENT_CANARY_TREND_SYNC_RISK_MEDIUM
+  - AGENT_CANARY_TREND_SYNC_RISK_HIGH
+- Davranis:
+  - Sync risk score yeterince yuksekse trend karari degrade edilir:
+    - high -> rollback
+    - medium + promote -> hold
+
+- API seviyesinde yeni diagnostics endpoint eklendi:
+  - GET /api/evaluator/trend-diagnostics
+- Endpoint tek payload'ta su bilgileri dondurur:
+  - trend decision
+  - trend windows
+  - sync_risk
+  - calendar_sync trend_summary snapshot
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_trend_canary_decision_includes_sync_risk_payload
+  - test_trend_canary_decision_sync_risk_high_forces_rollback
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 65/65 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 98/98 PASS

@@ -1,0 +1,24 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-57):
+- quality_evaluator.py icine trend diagnostics icin explainability tree uretimi eklendi:
+  - build_trend_explainability_tree(...)
+- quality_evaluator.py icine risk bilesenleri zaman-serisi uretimi eklendi:
+  - get_calendar_risk_components_timeseries(lookback_hours, bucket_minutes, max_points)
+  - bucket bazli risk_score + components {volatility, drift, latency, source}
+
+- web_arayuzu.py trend diagnostics endpointi genisletildi:
+  - GET /api/evaluator/trend-diagnostics artik explainability_tree donuyor.
+- Yeni endpoint eklendi:
+  - GET /api/evaluator/risk-components-timeseries
+
+Testler:
+- tests/test_quality_evaluator.py eklendi:
+  - test_calendar_risk_components_timeseries_returns_points
+  - test_build_trend_explainability_tree_contains_expected_nodes
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 67/67 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 100/100 PASS

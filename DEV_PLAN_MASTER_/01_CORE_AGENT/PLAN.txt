@@ -1,0 +1,31 @@
+BOLUM 1 - CEKIRDEK AGENT MIMARISI
+
+HEDEF
+- Agent sadece prompt calistirmasin.
+- ReAct tabanli gercek karar dongusu ile arac secsin, calistirsin, sonuc degerlendirsin.
+
+MIMARI
+- State machine: IDLE -> THINKING -> PLANNING -> TOOL_CALLING -> EVALUATING -> DONE/RETRY
+- Event loop: Kuyruk tabanli, deterministik, timeout ve retry kontrollu.
+- Prompt yonetimi: Sistem prompt + gorev prompt + dinamik baglam enjeksiyonu.
+- Tool calling: JSON action envelope
+  - alanlar: name, args, trace_id, timeout_sec, retry_policy, safety_level
+
+TESLIMATLAR
+- agent_core.py
+- prompt_manager.py
+- action_schema.py
+- action_executor.py
+- trace_store.py
+
+KABUL KRITERI
+- Agent en az 3 adimli plan cikarir.
+- En az 3 farkli araci ardısık/uygun yerde paralel kullanir.
+- Hata olunca alternatif planla gorevi bitirir.
+- Tum adimlar API ve dashboard loglarinda gorunur.
+
+TESTLER
+- test_state_machine.py
+- test_tool_action_parser.py
+- test_retry_and_timeout.py
+- test_trace_integrity.py

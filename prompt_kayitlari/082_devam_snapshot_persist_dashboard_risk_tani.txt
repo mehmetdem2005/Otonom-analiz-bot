@@ -1,0 +1,36 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-58):
+- quality_evaluator.py icine explainability snapshot persistence eklendi:
+  - AGENT_CANARY_TREND_EXPLAINABILITY_SNAPSHOT (0/1)
+  - AGENT_CANARY_TREND_EXPLAINABILITY_SNAPSHOT_FILE
+  - AGENT_CANARY_TREND_EXPLAINABILITY_SNAPSHOT_LIMIT
+  - trend_canary_decision cagrilarinda snapshot append
+  - get_trend_explainability_snapshots(limit)
+
+- quality_evaluator.py icine risk bilesenleri zaman-serisi helperlari genisletildi:
+  - get_calendar_risk_components_timeseries(...)
+  - build_trend_explainability_tree(...)
+
+- web_arayuzu.py API genisletildi:
+  - /api/evaluator/trend-diagnostics -> snapshots_preview + explainability_tree
+  - yeni endpoint: /api/evaluator/trend-explainability-snapshots
+  - /api/evaluator/risk-components-timeseries endpointi aktif kullanima baglandi
+
+- Dashboard entegrasyonu (public/dashboard.html):
+  - yeni menu/view: Risk Tani
+  - diagnostics summary kartlari
+  - explainability tree goruntusu
+  - risk bilesenleri zaman-serisi goruntusu
+  - persist snapshot listesi
+  - aktif panelde periyodik yenileme
+
+Testler:
+- tests/test_quality_evaluator.py eklendi:
+  - test_trend_canary_decision_persists_explainability_snapshot
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 68/68 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 101/101 PASS

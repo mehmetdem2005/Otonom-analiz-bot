@@ -1,0 +1,22 @@
+KULLANICI ISTEGI:
+- "devam et"
+
+YAPILANLAR (BU TUR):
+1) FAZ-4 icin evaluator canary karar katmani eklendi:
+   - quality_evaluator.py: canary_decision(summary, ...)
+   - Kararlar: promote | hold | rollback
+   - Esikler: min_promote_score, rollback_score, max_denied, max_rollbacks
+2) summary ciktisi canary alaniyla genisletildi
+3) Yeni API endpoint eklendi:
+   - GET /api/evaluator/canary-decision
+   - Parametreler:
+     - lines, days
+     - min_promote_score, rollback_score
+     - max_denied, max_rollbacks
+4) Test kapsami genisletildi:
+   - test_canary_decision_promote
+   - test_canary_decision_rollback_on_low_score
+
+DOGRULAMA:
+- tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+- Sonuc: 38/38 PASS

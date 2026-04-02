@@ -1,0 +1,35 @@
+PROMPT: devam
+TARIH: 2025-07-28
+KONU: EK GUNCELLEME-15 — Hafıza öğrenme döngüsünün tamamlanması
+
+YAPILAN DEGISIKLIKLER:
+1. agent_core.py — _memory_hint_for_path artık test-gate ve rollback guidance mesajlarına enjekte ediliyor
+   - Test-gate başarısız bloğunda: top-2 aday path için memory hint'i "| Hafıza(path): ..." formatında ekleniyor
+   - Rollback guidance bloğunda: aynı şekilde rollback candidates için memory hint ekleniyor
+
+2. ajan.py — MemoryStore artık live akışa bağlı
+   - _tek_tur_react_calistir: _mem = MemoryStore(...) oluşturulup build_default_registry'ye ve AgentCore'a birlikte pas edildi
+   - Böylece hem araçlar (hafiza_oku/yaz) hem de AgentCore aynı MemoryStore örneğini kullanıyor
+
+3. react_tools.py — hafiza_oku + hafiza_yaz araçları eklendi
+   - build_default_registry(base_dir, memory_store=None) opsiyonel parametre aldı
+   - _make_hafiza_oku: memory yoksa error, varsa recall_failures_for_path veya recall_recent döner
+   - _make_hafiza_yaz: fix_attempt veya rollback olayını MemoryStore.record_fix_attempt/record_rollback ile kaydeder
+   - MemoryRecord alan adları: kind, path, hint, ts, outcome (eski: event_type, file_path, error_hint, timestamp, success)
+
+4. web_arayuzu.py — /api/memory/stats endpoint eklendi
+   - total, rollbacks, fix_attempts, successes, overall_success_rate, by_path döner
+   - MemoryRecord alan adları düzeltildi (kind, path, outcome kullanılıyor)
+
+5. public/dashboard.html — Hafıza view paneline istatistik kartları eklendi
+   - Toplam Kayıt, Fix Denemesi, Rollback, Başarı Oranı kartları
+   - loadMemoryView() /api/memory/stats ile paralel fetch yapıyor
+   - JS alan adları düzeltildi: r.ts, r.kind, r.path, r.hint, r.outcome
+
+6. tests/test_react_tools.py — 3 yeni test eklendi (32 toplam, hepsi PASS)
+   - test_hafiza_oku_no_memory_store: MemoryStore olmadan error dönmeli
+   - test_hafiza_yaz_no_memory_store: aynı
+   - test_hafiza_yaz_ve_oku_entegrasyon: kaydedilen kayıt okunabilmeli
+
+TEST SONUCU: 32/32 PASS
+BACKEND: /api/traces/summary, /api/memory/recent, /api/memory/stats → 200 OK

@@ -1,0 +1,16 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devamke"
+
+Yapilanlar:
+- AgentCore write-guvenlik otomasyonu eklendi:
+  - dosya_yaz sonrasinda otomatik dar test (test_calistir)
+  - dar test basarisizsa otomatik rollback (dosya_geri_al)
+  - trace eventleri: inline_narrow_test_result, auto_rollback_applied
+  - AGENT_AUTOTEST_BROAD_AFTER_WRITE=1 ile opsiyonel broad test
+- Yeni unit testler:
+  - test_auto_rollback_applied_when_inline_narrow_test_fails
+  - test_no_auto_rollback_when_inline_narrow_test_passes
+- Dogrulama:
+  - /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest discover -s /workspaces/Otonom-analiz-bot/tests -t /workspaces/Otonom-analiz-bot -p 'test_react_*.py' -v
+  - Sonuc: 18/18 PASS

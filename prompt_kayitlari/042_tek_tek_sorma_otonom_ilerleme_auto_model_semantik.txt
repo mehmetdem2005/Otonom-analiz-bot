@@ -1,0 +1,22 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"tek tek sorma herşeyi yap istersen deme isterim ne kadar gelişirse iyidir"
+
+Yapilanlar:
+- MemoryStore semantic_search genisletildi:
+  - mode=overlap (mevcut)
+  - mode=embedding (hashed sparse cosine)
+  - mode=model (sentence-transformers tabanli)
+  - mode=auto (model varsa model, yoksa embedding fallback)
+- sentence-transformers modeli icin opsiyonel yukleme ve cache eklendi
+- API/UI/Tool entegrasyonu:
+  - /api/memory/search mode parametresi aktif
+  - Dashboard memory search istegi mode=auto ile guncellendi
+  - react_tools hafiza_ara mode parametresini destekler hale getirildi
+- Testler genisletildi:
+  - tests/test_memory_store.py: auto/fallback senaryolari
+  - tests/test_react_tools.py: hafiza_ara mode passthrough
+
+Dogrulama:
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -v tests.test_memory_store -> 12/12 PASS
+- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -v tests.test_react_tools -> 12/12 PASS

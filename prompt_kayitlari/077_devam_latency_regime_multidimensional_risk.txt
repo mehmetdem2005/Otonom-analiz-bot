@@ -1,0 +1,35 @@
+Kullanici istegi: "devam et"
+
+Yapilanlar (EK GUNCELLEME-53):
+- quality_evaluator.py icinde latency rejimi metrikleri p95 + p99 seviyesine genisletildi.
+- Eklenen metrikler:
+  - history_summary.p99_latency_ms
+  - window_summary.*.p99_latency_ms
+  - source_type_summary.*.p99_latency_ms
+
+- Trend anomaly hesaplamasina cok-boyutlu latency riski eklendi:
+  - trend_summary.latency_regime
+    - p95_short, p95_long, p95_ratio
+    - p99_short, p99_long, p99_ratio
+    - p95_abs_delta_ms, p99_abs_delta_ms
+    - risk
+- Latency risk hesaplamasi, overlap'i azaltmak icin 1h pencereyi 24h icindeki 1h-disi baseline ile karsilastiracak sekilde duzenlendi.
+
+- Anomaly threshold hesaplamasi guncellendi:
+  - base_delta + volatility etkisi + source_adaptive_penalty + drift_risk + latency_risk
+- Yeni env ayarlari:
+  - AGENT_CANARY_SYNC_ANOMALY_LATENCY_COEF
+  - AGENT_CANARY_SYNC_LATENCY_P95_RATIO_TRIGGER
+  - AGENT_CANARY_SYNC_LATENCY_P99_RATIO_TRIGGER
+  - AGENT_CANARY_SYNC_LATENCY_ABS_TRIGGER_MS
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - p99 metrik kontrolleri eklendi
+  - test_calendar_sync_trend_latency_regime_makes_threshold_stricter
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 59/59 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 92/92 PASS

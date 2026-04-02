@@ -1,0 +1,22 @@
+KULLANICI ISTEGI:
+- "evet" (canary kararini AgentCore runtime policy aksiyonuna bagla)
+
+YAPILANLAR (BU TUR):
+1) AgentCore canary runtime policy entegrasyonu yapildi:
+   - agent_core.py
+   - Yeni opsiyonel parametre: canary_provider
+   - Env feature flag: AGENT_CANARY_RUNTIME_POLICY=1
+2) Runtime policy davranisi eklendi:
+   - decision=rollback -> write_protect + high risk deny
+   - decision=hold -> high risk deny
+   - decision=promote -> normal mod
+3) Yeni trace olayi eklendi:
+   - runtime_policy_applied
+4) Tool calistirma adimina canary policy deny kontrolu eklendi:
+   - policy engelinde tool_denied + history kaydi
+5) Yeni test eklendi:
+   - tests/test_react_loop.py::test_runtime_canary_policy_blocks_write_on_rollback
+
+DOGRULAMA:
+- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+- Sonuc: 55/55 PASS

@@ -1,0 +1,15 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"tamam o zaman iyi, kaldığımız yerden devam"
+
+Yapilanlar:
+- MemoryStore semantik aramaya yeni mod eklendi: mode="embedding"
+- Uygulama: hashed sparse vektor + cosine benzerlik
+- Mevcut mode="overlap" davranisi korundu (geriye donuk uyum)
+- API genisletildi: /api/memory/search?mode=overlap|embedding
+- Unit testler genisletildi:
+  - test_semantic_search_embedding_mode_returns_relevant_records
+  - test_semantic_search_embedding_mode_path_filter
+- Dogrulama:
+  - /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -v tests.test_memory_store
+  - Sonuc: 10/10 PASS

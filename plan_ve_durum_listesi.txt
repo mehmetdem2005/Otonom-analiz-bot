@@ -88,3 +88,920 @@ EK GUNCELLEME-16 (2026-04-01)
 ✅ Yeni testler eklendi: test_semantic_search_returns_relevant_records, test_semantic_search_path_filter, test_hafiza_ara_entegrasyon
 ✅ Tum testler gecti: 35/35 PASS
 ❌ Embedding tabanli vector semantik hafiza (bir sonraki iterasyon)
+
+EK GUNCELLEME-17 (2026-04-02)
+✅ MemoryStore'a embedding benzeri semantik arama modu eklendi (hashed sparse vector + cosine)
+✅ /api/memory/search endpointine mode parametresi eklendi (overlap | embedding)
+✅ Geriye donuk uyum korundu: default mode=overlap
+✅ Yeni testler eklendi:
+	- test_semantic_search_embedding_mode_returns_relevant_records
+	- test_semantic_search_embedding_mode_path_filter
+✅ Dogrulama: tests.test_memory_store 10/10 PASS
+❌ Gercek embedding modeli (Sentence-Transformers vb.) entegrasyonu
+❌ Vektor index kaliciligi ve buyuk veri performans benchmarki
+
+EK GUNCELLEME-18 (2026-04-02)
+✅ MemoryStore semantik arama modlari genisletildi:
+	- overlap
+	- embedding (hashed sparse)
+	- model (sentence-transformers)
+	- auto (model -> fallback embedding)
+✅ sentence-transformers modeli icin opsiyonel yukleme + singleton cache eklendi
+✅ Dashboard memory search mode=auto olarak guncellendi
+✅ react_tools hafiza_ara mode parametresini destekler hale getirildi
+✅ requirements.txt icine sentence-transformers bagimliligi eklendi
+✅ Yeni testler eklendi:
+	- test_semantic_search_auto_mode_returns_results
+	- test_semantic_search_invalid_mode_falls_back_overlap
+	- test_hafiza_ara_mode_passthrough
+✅ Dogrulama:
+	- tests.test_memory_store 12/12 PASS
+	- tests.test_react_tools 12/12 PASS
+❌ Vektor index kaliciligi (FAISS/HNSW) ve buyuk hacim performans testi
+❌ Arama sonuclarinda rerank + zaman agirlikli skor birlestirme
+
+EK GUNCELLEME-19 (2026-04-02)
+✅ Semantik aramada zaman agirlikli rerank eklendi
+	- Parametreler: time_weight, half_life_days
+	- Formul: final = (1-time_weight)*relevance + time_weight*freshness
+	- freshness = exp(-age / half_life)
+✅ Tum modlara uygulandi: overlap, embedding, model, auto
+✅ API genisletildi: /api/memory/search (time_weight, half_life_days)
+✅ Tool genisletildi: hafiza_ara (time_weight, half_life_days)
+✅ Sonuc payload alanlari: score + relevance + freshness
+✅ Dashboard memory search time-aware cagrim yapacak sekilde guncellendi
+✅ Testler:
+	- tests.test_memory_store 14/14 PASS
+	- tests.test_react_tools 13/13 PASS
+❌ Vektor index kaliciligi (FAISS/HNSW) ve buyuk hacim benchmarki
+
+EK GUNCELLEME-20 (2026-04-02)
+✅ Kalici hashed vector index sidecar eklendi (*.hindex.jsonl)
+✅ Yeni kayitlar veri dosyasi ile birlikte index'e de append ediliyor
+✅ Tutarlilik kontrolu eklendi: satir sayisi uyusmazsa otomatik index rebuild
+✅ Embedding modu semantik arama index uzerinden calisacak sekilde optimize edildi
+✅ Yeni testler eklendi:
+	- test_hash_index_created_and_synced
+	- test_hash_index_rebuild_after_restart
+✅ Dogrulama:
+	- tests.test_memory_store 16/16 PASS
+	- tests.test_react_tools 13/13 PASS
+❌ FAISS/HNSW tabanli ANN index ve buyuk hacim benchmarki
+
+EK GUNCELLEME-21 (2026-04-02)
+✅ Semantik hafiza icin performans gorunurlugu eklendi
+✅ MemoryStore.recommended_mode() eklendi
+✅ MemoryStore.benchmark_search() eklendi
+	- overlap / embedding / auto (+ model varsa model)
+	- avg/min/max latency ms metrikleri
+✅ Yeni API endpointleri:
+	- /api/memory/recommended-mode
+	- /api/memory/benchmark
+✅ Yeni testler:
+	- test_recommended_mode_empty_store
+	- test_benchmark_search_returns_mode_stats
+✅ Dogrulama:
+	- tests.test_memory_store 18/18 PASS
+	- tests.test_react_tools 13/13 PASS
+❌ FAISS/HNSW tabanli ANN index ve buyuk hacim benchmarki (bir sonraki adim)
+
+EK GUNCELLEME-22 (2026-04-02)
+✅ ANN mode eklendi: semantic_search(mode="ann")
+✅ Kalici ANN sidecar dosyasi eklendi: *.ann.jsonl
+✅ ANN sidecar append + tutarlilik (rebuild) akisi eklendi
+✅ ANN candidate secimi guclendirildi:
+	- exact key
+	- prefix key
+	- global nearest-key fallback (hamming)
+✅ ANN robustness fallback eklendi (cosine <= 0 ise overlap relevance)
+✅ Kritik bugfix: ann mode query embedding init duzeltildi
+✅ recommended_mode buyuk hacimde ann tercih edecek sekilde guncellendi
+✅ benchmark_search ann modunu da raporlayacak sekilde guncellendi
+✅ Yeni testler eklendi:
+	- test_semantic_search_ann_mode_returns_relevant_records
+	- test_recommended_mode_large_store_prefers_ann
+✅ Dogrulama:
+	- tests.test_memory_store 20/20 PASS
+	- tests.test_react_tools 13/13 PASS
+❌ FAISS/HNSW gibi dis ANN kutuphaneleriyle gercek production-grade index (opsiyonel sonraki faz)
+
+EK GUNCELLEME-23 (2026-04-02)
+✅ Kullanici dostu sozluk klasoru eklendi: sozluk/
+✅ Yeni dosya: sozluk/yazilim-sozlugu.md
+✅ Yazilim bilmeyen kullanici icin temel kavramlar sade dille aciklandi
+	- fallback, fonksiyon, API, endpoint, mode, auto
+	- embedding, ANN, index, sidecar, rerank, score
+	- test, regression, timeout, retry, rollback
+✅ Sozluk "surekli buyuyecek" sekilde acik uc tasarlandi
+
+EK GUNCELLEME-24 (2026-04-02)
+✅ FAZ-4 baslangici: kalite degerlendirme modulu eklendi (quality_evaluator.py)
+✅ Trace + Memory birlesik ozet metrikleri eklendi:
+	- status (healthy/watch/critical)
+	- score (0-100)
+	- promotion.ready + reason
+✅ Yeni API endpoint eklendi:
+	- /api/evaluator/summary (lines, days)
+✅ Yeni test dosyasi eklendi: tests/test_quality_evaluator.py (3 test)
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 36/36 PASS
+❌ Canary release otomasyonu (otomatik promote/hold) henuz baglanmadi
+❌ Kritik esiklerde otomatik aksiyon tetikleme (or. write-protect veya rollback policy tighten) sonraki adim
+
+EK GUNCELLEME-25 (2026-04-02)
+✅ FAZ-4 canary karar katmani eklendi (promote/hold/rollback)
+✅ quality_evaluator.py genisletildi:
+	- canary_decision(summary, min_promote_score, rollback_score, max_denied, max_rollbacks)
+✅ summary ciktisina canary alani eklendi
+✅ Yeni API endpoint eklendi:
+	- /api/evaluator/canary-decision
+✅ Yeni testler eklendi:
+	- test_canary_decision_promote
+	- test_canary_decision_rollback_on_low_score
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 38/38 PASS
+❌ Canary kararinin AgentCore tarafinda otomatik runtime policy aksiyonuna baglanmasi (or. guardrail tighten) sonraki adim
+
+EK GUNCELLEME-26 (2026-04-02)
+✅ Canary karari AgentCore runtime policy katmanina baglandi
+✅ agent_core.py genisletildi:
+	- canary_provider (opsiyonel karar kaynagi)
+	- AGENT_CANARY_RUNTIME_POLICY=1 feature flag
+	- runtime policy modlari: promote_normal | hold_cautious | rollback_protect
+	- runtime policy deny kontrolu: tool calistirma oncesi engelleme
+✅ Yeni trace olayi eklendi:
+	- runtime_policy_applied
+✅ Policy engeli durumunda tool_denied + history kaydi uretiliyor
+✅ Yeni test eklendi:
+	- test_runtime_canary_policy_blocks_write_on_rollback
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 55/55 PASS
+❌ Canary kararina gore dinamik esik adaptasyonu (zamana ve yuk profiline gore otomatik tuning) sonraki adim
+
+EK GUNCELLEME-27 (2026-04-02)
+✅ Canary icin adaptif threshold tuning eklendi
+✅ quality_evaluator.py genisletildi:
+	- adaptive_thresholds(summary, ...)
+	- canary_decision(..., adaptive=True/False)
+✅ Dinamik esik sinyalleri eklendi:
+	- denied_ratio
+	- rollback_ratio
+	- volatility
+✅ API genisletmesi:
+	- /api/evaluator/canary-decision -> adaptive parametresi
+	- yeni endpoint: /api/evaluator/adaptive-thresholds
+✅ AgentCore adaptif mod entegrasyonu:
+	- AGENT_CANARY_ADAPTIVE=1
+✅ Yeni testler eklendi:
+	- test_adaptive_thresholds_increase_strictness_on_high_volatility
+	- test_canary_decision_adaptive_sets_flag
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 57/57 PASS
+❌ Runtime policy icin zaman-serisi tabanli trend penceresi (sadece anlik snapshot degil) sonraki adim
+
+EK GUNCELLEME-28 (2026-04-02)
+✅ Trend pencereli canary degerlendirme eklendi (1h/24h)
+✅ quality_evaluator.py genisletildi:
+	- trend_window_summary()
+	- trend_canary_decision()
+✅ Yeni API endpointleri eklendi:
+	- /api/evaluator/trend-summary
+	- /api/evaluator/trend-canary-decision
+✅ AgentCore trend karar modu eklendi:
+	- AGENT_CANARY_TREND_WINDOWS=1
+✅ Yeni testler eklendi:
+	- test_trend_window_summary_contains_1h_and_24h
+	- test_trend_canary_decision_detects_short_window_drop
+	- test_runtime_canary_policy_uses_trend_mode
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 60/60 PASS
+❌ Trend pencerelerinde EWMA/sabit agirlikli gecmis etkisi (daha yumusak karar) sonraki adim
+
+EK GUNCELLEME-29 (2026-04-02)
+✅ Trend canary kararina EWMA yumusatma eklendi
+✅ quality_evaluator.py genisletildi:
+	- trend_canary_decision(..., use_ewma, ewma_alpha)
+	- ewma metadata: {enabled, alpha}
+✅ API genisletmesi:
+	- /api/evaluator/trend-canary-decision -> use_ewma, ewma_alpha
+✅ AgentCore EWMA trend mod entegrasyonu:
+	- AGENT_CANARY_TREND_EWMA=1
+	- AGENT_CANARY_TREND_EWMA_ALPHA=<float>
+✅ Yeni testler eklendi:
+	- test_trend_canary_decision_ewma_metadata_and_alpha_clamp
+	- test_runtime_canary_policy_uses_trend_ewma_mode_without_provider
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 62/62 PASS
+❌ Trend kararinda hafta-gun saat dilimi bazli mevsimsellik/periodiklik etkisi sonraki adim
+
+EK GUNCELLEME-30 (2026-04-02)
+✅ Trend canary kararina mevsimsellik kalibrasyonu eklendi
+✅ quality_evaluator.py genisletildi:
+	- trend_canary_decision(..., use_seasonality, seasonality_lookback_days)
+	- _seasonality_adjustment(...)
+✅ Seasonality metadata eklendi:
+	- enabled, lookback_days, hour_baseline, hour_observed, adjustment
+✅ API genisletmesi:
+	- /api/evaluator/trend-canary-decision -> use_seasonality, seasonality_lookback_days
+✅ AgentCore seasonality trend mod entegrasyonu:
+	- AGENT_CANARY_TREND_SEASONALITY=1
+	- AGENT_CANARY_TREND_SEASONALITY_DAYS=<int>
+✅ Yeni testler eklendi:
+	- test_trend_canary_decision_seasonality_metadata
+	- test_runtime_canary_policy_uses_trend_seasonality_mode
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 64/64 PASS
+❌ Haftanin gunu + saat kombinasyonunda daha ince periyodik modelleme (or. dow-hour matrisi) sonraki adim
+
+EK GUNCELLEME-31 (2026-04-02)
+✅ Mevsimsellik modelinde dow-hour (hafta-gunu+saat) matrisi eklendi
+✅ quality_evaluator.py genisletildi:
+	- _seasonality_adjustment(...) saat + dow-hour cift seviyeli baseline hesaplar
+	- Karar kalibrasyonunda dow-hour baseline mevcutsa once onu kullanir
+✅ Seasonality metadata genisletildi:
+	- dow_hour_baseline
+	- dow_observed
+✅ Testler genisletildi:
+	- test_trend_canary_decision_seasonality_metadata (yeni alan dogrulamalari)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 32/32 PASS
+❌ Haftalik periyot icin daha ileri modelleme (or. weekday-hour confidence weighting) sonraki adim
+
+EK GUNCELLEME-32 (2026-04-02)
+✅ DOW-HOUR mevsimsellikte confidence weighting eklendi
+✅ quality_evaluator.py genisletildi:
+	- _seasonality_adjustment(...) icinde dow-hour orneklem guveni hesaplanir
+	- confidence = clamp(dow_hour_samples / 12.0, 0..1)
+	- used_baseline = confidence*dow_hour + (1-confidence)*fallback(hour/global)
+✅ Seasonality metadata genisletildi:
+	- used_baseline
+	- dow_hour_samples
+	- hour_samples
+	- confidence
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_seasonality_metadata (confidence/samples dogrulamasi)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback (confidence=0.0 fallback)
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 32/32 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 65/65 PASS
+❌ Haftalik periyot icin confidence'i mevsimsel varyans ile birlikte kalibre eden gelismis agirliklandirma (or. variance-aware confidence) sonraki adim
+
+EK GUNCELLEME-33 (2026-04-02)
+✅ Mevsimsellik confidence modeli variance-aware olacak sekilde gelistirildi
+✅ quality_evaluator.py genisletildi:
+	- confidence artik sample + variance + volatility sinyallerinden uretiliyor
+	- confidence = sample_confidence * (0.6*variance_confidence + 0.4*volatility_confidence)
+✅ Seasonality metadata genisletildi:
+	- sample_confidence
+	- variance_confidence
+	- volatility_confidence
+	- variance
+	- volatility
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_seasonality_metadata (yeni metrik alanlari)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback (sample_confidence=0.0)
+	- test_trend_canary_decision_seasonality_variance_reduces_confidence
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 33/33 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 66/66 PASS
+❌ Confidence hesaplamasinda trend drift ve weekday cluster etkisini birlestiren adaptif katsayi (bir sonraki adim)
+
+EK GUNCELLEME-34 (2026-04-02)
+✅ Mevsimsellik confidence modeline drift-aware katsayi eklendi
+✅ quality_evaluator.py genisletildi:
+	- trend_canary_decision icinde trend_drift=abs(short_score-long_score) hesaplanip seasonality'e aktarilir
+	- _seasonality_adjustment(...) drift_confidence hesabi yapar
+	- confidence = sample_confidence * (0.5*variance_confidence + 0.3*volatility_confidence + 0.2*drift_confidence)
+✅ Seasonality metadata genisletildi:
+	- drift_confidence
+	- trend_drift
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_seasonality_metadata (drift alan dogrulamalari)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback (drift_confidence defaultu)
+	- test_seasonality_adjustment_drift_confidence_reduces_trust
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 34/34 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 67/67 PASS
+❌ Weekday cluster etkisini confidence modeline dogrudan entegre eden adaptif katsayi (or. komsu gun/saat benzerligi) sonraki adim
+
+EK GUNCELLEME-35 (2026-04-02)
+✅ Weekday-cluster benzerligi ve adaptif katsayi seasonality modeline eklendi
+✅ quality_evaluator.py genisletildi:
+	- current hour icin weekday/weekend cluster baseline hesabi
+	- komsu gun baseline (neighbor_baseline) ve cluster_similarity hesabi
+	- cluster_adaptive_coef ile dow-hour + cluster baseline blend
+	- confidence'i cluster katsayisi ile olcekleme: raw_confidence * (0.7 + 0.3*cluster_adaptive_coef)
+✅ Seasonality metadata genisletildi:
+	- cluster_blended_baseline
+	- weekday_cluster
+	- cluster_baseline
+	- neighbor_baseline
+	- cluster_similarity
+	- cluster_adaptive_coef
+	- cluster_coverage
+	- neighbor_coverage
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_seasonality_metadata (cluster metadata)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback (coef aralik kontrolu)
+	- test_seasonality_adjustment_weekday_cluster_similarity_affects_coef
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 35/35 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 68/68 PASS
+❌ Saat komsulugu (h-1/h+1) ile 2D weekday-hour benzerlik matrisi ve adaptif katsayi (bir sonraki adim)
+
+EK GUNCELLEME-36 (2026-04-02)
+✅ Saat komsulugu (h-1/h+1) ile 2D weekday-hour benzerlik matrisi seasonality modeline eklendi
+✅ quality_evaluator.py genisletildi:
+	- current cluster gunleri icin komsu saat baseline hesabi
+	- hour_neighbor_similarity ve hour_neighbor_adaptive_coef hesabi
+	- cluster_blended_baseline + hour_neighbor_baseline -> matrix_blended_baseline
+	- confidence olceklemesi hour-neighbor katsayisini da icerir
+✅ Seasonality metadata genisletildi:
+	- hour_neighbor_baseline
+	- hour_neighbor_similarity
+	- hour_neighbor_adaptive_coef
+	- hour_neighbor_coverage
+	- matrix_blended_baseline
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_seasonality_metadata (hour-neighbor metadata)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback (hour_neighbor coef aralik kontrolu)
+	- test_seasonality_adjustment_hour_neighbor_similarity_affects_coef
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 36/36 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 69/69 PASS
+❌ Resmi tatil / ozel gun anomaly takvimi ve takvim tabanli sezonluk override (sonraki adim)
+
+EK GUNCELLEME-37 (2026-04-02)
+✅ Resmi/ozel gun anomaly takvimi ve takvim tabanli seasonality override eklendi
+✅ quality_evaluator.py genisletildi:
+	- calendar_overrides.json okuma destegi (_load_calendar_overrides)
+	- tarih bazli label eslestirme (_calendar_match_labels)
+	- ozel gunlerde ayni etiketli gecmis saatlerden calendar_baseline uretimi
+	- matrix_blended_baseline ile calendar_baseline adaptif blend
+	- confidence icin calendar_adaptive_coef olceklemesi
+✅ Varsayilan takvim dosyasi eklendi:
+	- calendar_overrides.json (sabit tarihli resmi/ozel gunler)
+✅ Seasonality metadata genisletildi:
+	- calendar_override_active
+	- calendar_label
+	- calendar_baseline
+	- calendar_adaptive_coef
+	- calendar_coverage
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_seasonality_metadata (calendar metadata)
+	- test_trend_canary_decision_seasonality_dow_hour_fallback (calendar inactive dogrulamasi)
+	- test_seasonality_adjustment_calendar_override_applies_special_day_baseline
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 37/37 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 70/70 PASS
+❌ Hareketli dini tatiller / dinamik takvim saglayicisi ve takvim agirligini olay siddetine gore adaptiflestirme (sonraki adim)
+
+EK GUNCELLEME-38 (2026-04-02)
+✅ Hareketli tatil araliklari ve severity-aware takvim override destegi eklendi
+✅ quality_evaluator.py genisletildi:
+	- takvim eslesmelerinde dates[] ve start_date/end_date desteği
+	- severity -> agirlik donusumu (_calendar_severity_weight)
+	- calendar_adaptive_coef coverage * severity weight ile hesaplaniyor
+	- calendar aktifken confidence severity bazli yeniden olcekleniyor
+✅ Seasonality metadata genisletildi:
+	- calendar_severity
+	- calendar_severity_weight
+✅ Takvim veri seti genisletildi:
+	- calendar_overrides.json icine severity alanlari eklendi
+	- Ramazan/Kurban Bayrami icin 2025-2027 tarih araliklari eklendi
+✅ Testler guclendirildi:
+	- test_seasonality_adjustment_calendar_range_match_supports_moving_holidays
+	- test_seasonality_adjustment_calendar_severity_increases_adaptive_coef
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 39/39 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 72/72 PASS
+❌ Dis takvim saglayicisi (API/ICS) senkronizasyonu ve gelecek yillar icin otomatik takvim tazeleme (sonraki adim)
+
+EK GUNCELLEME-39 (2026-04-02)
+✅ Dis JSON kaynaktan takvim override senkronizasyonu eklendi
+✅ quality_evaluator.py genisletildi:
+	- _calendar_file_path()
+	- _calendar_signature(...)
+	- _normalize_calendar_override(...)
+	- _load_calendar_overrides_from_source(...)
+	- sync_calendar_overrides(source, merge)
+✅ Sync ozellikleri:
+	- lokal JSON dosyadan import
+	- http/https JSON kaynaktan import
+	- merge veya replace modu
+	- duplicate kayitlari signature ile eleme
+✅ Yeni API endpointleri eklendi:
+	- GET /api/evaluator/calendar-overrides
+	- POST /api/evaluator/calendar-sync
+✅ Testler guclendirildi:
+	- test_calendar_sync_merges_external_source_file
+	- test_calendar_sync_replace_mode_discards_existing_rows
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 41/41 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 74/74 PASS
+❌ ICS parser / uzak takvim beslemesi icin format donusturucu ve periyodik otomatik yenileme (sonraki adim)
+
+EK GUNCELLEME-40 (2026-04-02)
+✅ ICS takvim beslemesi icin format donusturucu eklendi
+✅ quality_evaluator.py genisletildi:
+	- _slugify_label(...)
+	- _parse_ics_datetime(...)
+	- _parse_ics_calendar_overrides(...)
+	- .ics veya BEGIN:VCALENDAR icerigi otomatik parse edilir
+✅ ICS import esleme kurallari:
+	- SUMMARY -> label
+	- DTSTART -> date/start_date
+	- DTEND -> inclusive end_date
+	- X-SEVERITY / SEVERITY / PRIORITY / CATEGORIES -> severity
+✅ Testler guclendirildi:
+	- test_calendar_sync_imports_ics_events
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 42/42 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 75/75 PASS
+❌ Periyodik otomatik takvim yenileme (cron/task) ve sync sonuc cache/telemetry kaydi (sonraki adim)
+
+EK GUNCELLEME-41 (2026-04-02)
+✅ Periyodik otomatik takvim yenileme icin stale-based auto-sync ve telemetry kaydi eklendi
+✅ quality_evaluator.py genisletildi:
+	- _calendar_sync_status_path()
+	- get_calendar_sync_status()
+	- _write_calendar_sync_status(...)
+	- _read_calendar_overrides_file()
+	- maybe_auto_sync_calendar_overrides(force=False)
+✅ Sync telemetry icerigi:
+	- status
+	- source
+	- imported / written
+	- started_at / finished_at
+	- error (varsa)
+✅ Otomatik yenileme env ayarlari:
+	- AGENT_CANARY_CALENDAR_AUTO_SYNC
+	- AGENT_CANARY_CALENDAR_SYNC_INTERVAL_SEC
+	- AGENT_CANARY_CALENDAR_SYNC_MERGE
+✅ Yeni API endpointleri eklendi:
+	- GET /api/evaluator/calendar-sync-status
+	- POST /api/evaluator/calendar-sync-auto
+✅ Testler guclendirildi:
+	- test_calendar_sync_writes_status_telemetry_file
+	- test_calendar_auto_sync_refreshes_when_status_is_stale
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 44/44 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 77/77 PASS
+❌ Gercek periyodik scheduler/task entegrasyonu ve sync rate-limit/cache stratejisi (sonraki adim)
+
+EK GUNCELLEME-42 (2026-04-02)
+✅ Gercek periyodik scheduler/task entegrasyonu ve sync rate-limit/cache stratejisi eklendi
+✅ quality_evaluator.py genisletildi:
+	- _calendar_rows_hash(...)
+	- sync sonucunda changed/source_hash/noop telemetry
+	- error cooldown mantigi: AGENT_CANARY_CALENDAR_SYNC_ERROR_COOLDOWN_SEC
+	- fresh/error durumlarinda maybe_auto_sync akilli skip/cooldown davranisi
+✅ web_arayuzu.py genisletildi:
+	- startup/shutdown calendar scheduler task entegrasyonu
+	- AGENT_CANARY_CALENDAR_SCHEDULER
+	- AGENT_CANARY_CALENDAR_SCHEDULER_INTERVAL_SEC
+	- /api/evaluator/calendar-sync-status -> scheduler + auto_sync konfigurasyon gorunurlugu
+✅ Testler guclendirildi:
+	- test_calendar_sync_noop_when_merged_content_unchanged
+	- test_calendar_auto_sync_respects_error_cooldown
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 46/46 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 79/79 PASS
+❌ Uzak sync icin ETag/Last-Modified tabanli ag-verimli fetch ve retry backoff telemetrisi (sonraki adim)
+
+EK GUNCELLEME-43 (2026-04-02)
+✅ Uzak sync icin ETag/Last-Modified tabanli ag-verimli fetch eklendi
+✅ quality_evaluator.py genisletildi:
+	- _load_calendar_overrides_from_source_with_meta(...)
+	- HTTP kosullu istek headerlari: If-None-Match / If-Modified-Since
+	- HTTP 304 durumunda noop_remote_not_modified akisi
+✅ Sync telemetry genisletildi:
+	- http_status
+	- http_etag
+	- http_last_modified
+	- changed
+	- source_hash
+✅ Retry backoff telemetrisi eklendi:
+	- consecutive_failures
+	- backoff_sec
+	- next_retry_at
+	- AGENT_CANARY_CALENDAR_SYNC_BACKOFF_BASE_SEC
+	- AGENT_CANARY_CALENDAR_SYNC_MAX_BACKOFF_SEC
+✅ Auto-sync davranisi guclendirildi:
+	- next_retry_at aktifse cooldown (reason=backoff_active)
+✅ Testler guclendirildi:
+	- test_calendar_sync_remote_304_uses_conditional_headers_and_noop
+	- test_calendar_sync_error_sets_exponential_backoff
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 48/48 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 81/81 PASS
+❌ Uzak sync icin jitter'li retry stratejisi ve status endpointte son N deneme gecmisi (sonraki adim)
+
+EK GUNCELLEME-44 (2026-04-02)
+✅ Uzak sync icin jitter'li retry stratejisi eklendi
+✅ quality_evaluator.py genisletildi:
+	- AGENT_CANARY_CALENDAR_SYNC_BACKOFF_JITTER
+	- error backoff hesaplamasi jitter factor ile genisletildi
+	- telemetry alanı: backoff_jitter
+✅ Status endpoint icin son N deneme gecmisi eklendi
+✅ quality_evaluator.py genisletildi:
+	- _write_calendar_sync_status(...) history biriktirir
+	- AGENT_CANARY_CALENDAR_SYNC_HISTORY_LIMIT ile bounded history
+✅ Testler guclendirildi:
+	- test_calendar_sync_error_sets_exponential_backoff (jitter dahil)
+	- test_calendar_sync_status_keeps_bounded_history
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 49/49 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 82/82 PASS
+❌ History kaydinda sync latency ve kaynak turu (json/ics/http) gibi detay telemetrisi (sonraki adim)
+
+EK GUNCELLEME-45 (2026-04-02)
+✅ History telemetrisi kaynak turu / outcome / latency ile zenginlestirildi
+✅ quality_evaluator.py genisletildi:
+	- sync result alanlari: source_type, outcome, latency_ms
+	- history entry alanlari: source_type, outcome, latency_ms, backoff_jitter
+✅ Status cikti ozet metrikleri eklendi:
+	- history_summary.total
+	- history_summary.status_counts
+	- history_summary.avg_latency_ms
+	- history_summary.min_latency_ms
+	- history_summary.max_latency_ms
+✅ Testler guclendirildi:
+	- test_calendar_sync_writes_status_telemetry_file (source_type/outcome/latency)
+	- test_calendar_sync_remote_304_uses_conditional_headers_and_noop (source_type/outcome)
+	- test_calendar_sync_status_keeps_bounded_history (history_summary)
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 49/49 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 82/82 PASS
+❌ Status endpointte kayan pencere basari orani (son 1h/24h sync) ve hata tipleri dagilimi (sonraki adim)
+
+EK GUNCELLEME-46 (2026-04-02)
+✅ Status endpointte kayan pencere basari orani ve hata tipi dagilimi eklendi
+✅ quality_evaluator.py genisletildi:
+	- get_calendar_sync_status() -> window_summary.1h / window_summary.24h
+	- metrikler: attempts, success, success_rate, errors
+	- error_types dagilimi (exception type bazli)
+✅ History telemetrisi ek alanlar ile guclendirildi:
+	- source_type
+	- outcome
+	- latency_ms
+	- backoff_jitter
+✅ Testler guclendirildi:
+	- test_calendar_sync_status_keeps_bounded_history (window_summary)
+	- test_calendar_sync_status_window_error_type_distribution
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 50/50 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 83/83 PASS
+❌ Status endpointte kaynak turu bazli (http/json/ics) ayrik basari orani ve p95 latency metrikleri (sonraki adim)
+
+EK GUNCELLEME-47 (2026-04-02)
+✅ Status endpointte kaynak turu bazli ayrik basari orani ve p95 latency metrikleri eklendi
+✅ quality_evaluator.py genisletildi:
+	- _percentile(...)
+	- _is_success_sync_status(...)
+	- _error_type_from_message(...)
+	- _infer_calendar_source_type(...)
+✅ history_summary metrikleri genisletildi:
+	- p95_latency_ms
+	- source_type_summary (attempts/success/success_rate/avg_latency_ms/p95_latency_ms)
+✅ window_summary metrikleri genisletildi (1h/24h):
+	- p95_latency_ms
+	- source_type_summary
+✅ Testler guclendirildi:
+	- test_calendar_sync_status_keeps_bounded_history (source_type_summary + p95)
+	- test_calendar_sync_status_window_error_type_distribution (source_type success + window p95)
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 50/50 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 83/83 PASS
+❌ Status endpointte sync outcome trend skoru (ok/noop/error agirlikli) ve anomaly flag (kisa pencere sapma) sonraki adim
+
+EK GUNCELLEME-48 (2026-04-02)
+✅ Status endpointte sync outcome trend skoru ve anomaly flag eklendi
+✅ quality_evaluator.py genisletildi:
+	- _outcome_weight(...)
+	- trend_summary.score_1h
+	- trend_summary.score_24h
+	- trend_summary.delta_1h_vs_24h
+	- trend_summary.anomaly
+	- trend_summary.reason
+✅ Kisa pencere sapmasi icin anomaly heuristic eklendi:
+	- yeterli deneme sayisi + negatif delta kosulu
+✅ Testler guclendirildi:
+	- test_calendar_sync_status_keeps_bounded_history (trend_summary)
+	- test_calendar_sync_status_window_error_type_distribution (trend alanlari)
+	- test_calendar_sync_status_trend_anomaly_flags_short_window_drop
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 51/51 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 84/84 PASS
+❌ Trend anomaly kararinda dinamik esik (volatiliteye gore adaptif delta threshold) sonraki adim
+
+EK GUNCELLEME-49 (2026-04-02)
+✅ Trend anomaly kararinda volatiliteye gore adaptif delta threshold eklendi
+✅ quality_evaluator.py genisletildi:
+	- volatility_24h hesabi
+	- anomaly_threshold alani
+	- dynamic threshold formulu: -(0.25 + 0.35 * clamp(volatility,0..1))
+✅ Anomaly karari dinamik esige gore verilecek sekilde guncellendi
+✅ Testler guclendirildi:
+	- trend alan kontrolleri: volatility_24h, anomaly_threshold
+	- test_calendar_sync_trend_threshold_adapts_to_volatility
+	- anomaly testinde yeni alan kontrolleri
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 52/52 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 85/85 PASS
+❌ Trend anomaly karari icin EWMA tabanli outcome score ve configurable threshold katsayilari (sonraki adim)
+
+EK GUNCELLEME-50 (2026-04-02)
+✅ Trend anomaly karari icin EWMA tabanli outcome score eklendi
+✅ quality_evaluator.py genisletildi:
+	- AGENT_CANARY_SYNC_TREND_EWMA
+	- AGENT_CANARY_SYNC_TREND_EWMA_ALPHA
+	- trend_summary.ewma {enabled, alpha}
+✅ Anomaly threshold katsayilari konfigurabl hale getirildi:
+	- AGENT_CANARY_SYNC_ANOMALY_BASE_DELTA
+	- AGENT_CANARY_SYNC_ANOMALY_VOL_COEF
+	- AGENT_CANARY_SYNC_ANOMALY_MIN_SHORT_ATTEMPTS
+	- AGENT_CANARY_SYNC_ANOMALY_MIN_LONG_ATTEMPTS
+✅ Testler guclendirildi:
+	- test_calendar_sync_trend_ewma_toggle_changes_score
+	- test_calendar_sync_trend_threshold_uses_env_coefficients
+	- trend metadata kontrolleri (ewma)
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 54/54 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 87/87 PASS
+❌ Trend anomaly kararini source_type bazli agirliklandirma ve pencere-ici drift metrikleriyle zenginlestirme (sonraki adim)
+
+EK GUNCELLEME-51 (2026-04-02)
+✅ Trend anomaly kararinda source_type bazli agirliklandirma eklendi
+✅ quality_evaluator.py genisletildi:
+	- _source_type_weight(...)
+	- AGENT_CANARY_SYNC_SOURCE_WEIGHT_DEFAULT
+	- AGENT_CANARY_SYNC_SOURCE_WEIGHT_<SOURCE_TYPE>
+	- trend hesaplarinda outcome_weight * source_type_weight kullanimi
+✅ Pencere-ici drift metrikleri eklendi:
+	- trend_summary.drift_1h
+	- trend_summary.drift_24h
+	- trend_summary.drift_gap
+	- first_half_score / last_half_score / intra_window_delta / instability
+✅ trend_summary metadata genisletildi:
+	- source_weighting {enabled, default_weight}
+✅ Testler guclendirildi:
+	- test_calendar_sync_trend_source_type_weighting_uses_env
+	- test_calendar_sync_trend_includes_intra_window_drift_metrics
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 56/56 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 89/89 PASS
+❌ Trend anomaly kararinda source_type bazli adaptif threshold katsayi kalibrasyonu (otomatik) ve drift trendinin zaman-serisi skoru (sonraki adim)
+
+EK GUNCELLEME-52 (2026-04-02)
+✅ Trend anomaly kararinda source_type bazli adaptif threshold kalibrasyonu eklendi
+✅ quality_evaluator.py genisletildi:
+	- _source_adaptive_penalty(...)
+	- AGENT_CANARY_SYNC_ANOMALY_SOURCE_COEF
+	- trend_summary.source_adaptive_penalty
+✅ Drift trendi icin zaman-serisi skoru eklendi:
+	- _drift_time_series(...)
+	- AGENT_CANARY_SYNC_DRIFT_TREND_SPAN
+	- AGENT_CANARY_SYNC_ANOMALY_DRIFT_COEF
+	- trend_summary.drift_time_series {points, rolling_span, series, slope, score}
+✅ Anomaly threshold hesaplamasi zenginlestirildi:
+	- base_delta + volatility etkisi + source_adaptive_penalty + drift_risk
+✅ Testler guclendirildi:
+	- test_calendar_sync_trend_source_penalty_makes_threshold_stricter
+	- test_calendar_sync_trend_drift_time_series_score_present
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 58/58 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 91/91 PASS
+❌ Trend anomaly kararina latency rejimi (p95/p99 sapmasi) ile cok-boyutlu risk birlesimi ve source_type bazli adaptif katsayi otomatik ogrenimi (sonraki adim)
+
+EK GUNCELLEME-53 (2026-04-02)
+✅ Trend anomaly kararina latency rejimi (p95/p99) ile cok-boyutlu risk birlesimi eklendi
+✅ quality_evaluator.py genisletildi:
+	- history_summary.p99_latency_ms
+	- window_summary.*.p99_latency_ms
+	- source_type_summary.*.p99_latency_ms
+	- trend_summary.latency_regime {p95/p99 ratio + abs delta + risk}
+✅ Latency risk hesaplamasi baseline iyilestirildi:
+	- 1h pencere, 24h icindeki 1h-disi baseline ile karsilastirilir
+✅ Anomaly threshold hesaplamasi genisletildi:
+	- + latency_risk * AGENT_CANARY_SYNC_ANOMALY_LATENCY_COEF
+✅ Yeni env ayarlari:
+	- AGENT_CANARY_SYNC_ANOMALY_LATENCY_COEF
+	- AGENT_CANARY_SYNC_LATENCY_P95_RATIO_TRIGGER
+	- AGENT_CANARY_SYNC_LATENCY_P99_RATIO_TRIGGER
+	- AGENT_CANARY_SYNC_LATENCY_ABS_TRIGGER_MS
+✅ Testler guclendirildi:
+	- p99 metrik kontrolleri (window/history/trend)
+	- test_calendar_sync_trend_latency_regime_makes_threshold_stricter
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 59/59 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 92/92 PASS
+❌ Source_type bazli adaptif katsayilarin otomatik ogrenimi (history'den self-tuning) ve latency+drift+volatility icin birlesik risk confidence skoru (sonraki adim)
+
+EK GUNCELLEME-54 (2026-04-02)
+✅ Source_type bazli adaptif katsayilar icin history'den self-tuning eklendi
+✅ quality_evaluator.py genisletildi:
+	- AGENT_CANARY_SYNC_SOURCE_AUTOTUNE
+	- AGENT_CANARY_SYNC_SOURCE_AUTOTUNE_STRENGTH
+	- effective source agirligi: env weight * learned multiplier
+✅ trend_summary.source_weighting metadata genisletildi:
+	- autotune_enabled
+	- autotune_strength
+	- learned (source_type -> multiplier)
+✅ Birlesik risk confidence skoru eklendi:
+	- trend_summary.risk_confidence {score, level, attempt_factor, signal_strength, components}
+	- components: volatility + drift + latency + source
+✅ Volatilite metriği normalize edildi (0..1)
+✅ Testler guclendirildi:
+	- test_calendar_sync_trend_source_autotune_changes_weighted_score
+	- test_calendar_sync_trend_risk_confidence_fields_present
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 61/61 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 94/94 PASS
+❌ Source_type agirlik ogrenimi icin zaman-agirlikli (recency-weighted) self-tuning ve confidence skorunu runtime policy karar mantigina dogrudan baglama (sonraki adim)
+
+EK GUNCELLEME-55 (2026-04-02)
+✅ Source_type agirlik ogrenimi recency-weighted self-tuning'e gecirildi
+✅ quality_evaluator.py genisletildi:
+	- AGENT_CANARY_SYNC_SOURCE_AUTOTUNE_HALF_LIFE_HOURS
+	- recency agirlikli success_rate birlestirme (half-life tabanli)
+	- learned multiplier hesaplamasi tarihsel + recency sinyaliyle guclendirildi
+✅ Runtime policy karar mantigi risk confidence ile dogrudan zenginlestirildi
+✅ agent_core.py genisletildi:
+	- AGENT_CANARY_RUNTIME_USE_SYNC_RISK
+	- AGENT_CANARY_RUNTIME_SYNC_RISK_MEDIUM
+	- AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH
+	- runtime_policy.sync_risk_score
+	- runtime_policy.sync_risk_level
+✅ Sync risk yuksek oldugunda promote kararinin hold/rollback protect moduna cekilmesi eklendi
+✅ Testler guclendirildi:
+	- test_calendar_sync_trend_source_autotune_respects_recency
+	- test_runtime_canary_policy_sync_risk_overrides_promote
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 63/63 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 96/96 PASS
+❌ Risk confidence skorunu trend_canary_decision ciktisina tasiyip API seviyesinde agirlikli karar aciklama/diagnostics endpointi ekleme (sonraki adim)
+
+EK GUNCELLEME-56 (2026-04-02)
+✅ Risk confidence/skor bilgisi trend_canary_decision ciktisina tasindi
+✅ quality_evaluator.py genisletildi:
+	- trend_canary_decision().sync_risk payload
+	- AGENT_CANARY_TREND_SYNC_RISK
+	- AGENT_CANARY_TREND_SYNC_RISK_MEDIUM
+	- AGENT_CANARY_TREND_SYNC_RISK_HIGH
+✅ Trend kararinda sync risk aware degrade mantigi eklendi:
+	- risk high => rollback
+	- risk medium + promote => hold
+✅ API diagnostics endpoint eklendi:
+	- GET /api/evaluator/trend-diagnostics
+	- karar + trend + sync_risk + calendar_sync trend snapshot tek payload
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_includes_sync_risk_payload
+	- test_trend_canary_decision_sync_risk_high_forces_rollback
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 65/65 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 98/98 PASS
+❌ Trend diagnostics icin aciklayici neden-agaci (explainability tree) ve risk bileşenlerinin zaman-serisi endpointi (sonraki adim)
+
+EK GUNCELLEME-57 (2026-04-02)
+✅ Trend diagnostics icin aciklayici neden-agaci (explainability tree) eklendi
+✅ quality_evaluator.py genisletildi:
+	- build_trend_explainability_tree(...)
+✅ Risk bilesenlerinin zaman-serisi hesaplamasi eklendi
+✅ quality_evaluator.py genisletildi:
+	- get_calendar_risk_components_timeseries(...)
+	- bucket bazli risk_score + components (volatility, drift, latency, source)
+✅ API genisletmesi:
+	- /api/evaluator/trend-diagnostics -> explainability_tree
+	- yeni endpoint: /api/evaluator/risk-components-timeseries
+✅ Testler guclendirildi:
+	- test_calendar_risk_components_timeseries_returns_points
+	- test_build_trend_explainability_tree_contains_expected_nodes
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 67/67 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 100/100 PASS
+❌ Trend diagnostics ve runtime policy icin tarihsel explainability snapshot persisti + dashboard entegrasyonu (sonraki adim)
+
+EK GUNCELLEME-58 (2026-04-02)
+✅ Trend diagnostics icin tarihsel explainability snapshot persisti eklendi
+✅ quality_evaluator.py genisletildi:
+	- AGENT_CANARY_TREND_EXPLAINABILITY_SNAPSHOT
+	- AGENT_CANARY_TREND_EXPLAINABILITY_SNAPSHOT_FILE
+	- AGENT_CANARY_TREND_EXPLAINABILITY_SNAPSHOT_LIMIT
+	- _append_trend_explainability_snapshot(...)
+	- get_trend_explainability_snapshots(...)
+✅ API genisletmesi:
+	- /api/evaluator/trend-diagnostics -> snapshots_preview + explainability_tree
+	- yeni endpoint: /api/evaluator/trend-explainability-snapshots
+	- /api/evaluator/risk-components-timeseries kullanimi dashboard ile baglandi
+✅ Dashboard entegrasyonu tamamlandi:
+	- public/dashboard.html -> yeni Risk Tani paneli
+	- diagnostics summary + explainability tree + risk timeseries + snapshot listesi
+	- aktif panelde periyodik otomatik yenileme
+✅ Testler guclendirildi:
+	- test_trend_canary_decision_persists_explainability_snapshot
+✅ Regresyon dogrulamasi:
+	- tests.test_quality_evaluator + tests.test_react_loop = 68/68 PASS
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 101/101 PASS
+❌ Risk diagnostics paneli icin grafiklestirilmis cizgi/alan chart bileseni ve karar etkisini gosteren interaktif threshold simulatörü (sonraki adim)
+
+EK GUNCELLEME-59 (2026-04-02)
+✅ Risk diagnostics paneli icin grafiklestirilmis cizgi chart bileseni eklendi
+✅ public/dashboard.html genisletildi:
+	- riskTimeseriesChart (SVG tabanli cizgi chart)
+	- risk_score + latency komponent cizimleri
+✅ Karar etkisini gosteren interaktif threshold simulatörü eklendi
+✅ public/dashboard.html genisletildi:
+	- simDelta, simBase, simVolCoef, simDriftCoef, simLatencyCoef
+	- simVol, simDrift, simLatency, simSource sliderlari
+	- recalcRiskSimulator(), syncSimulatorFromDiagnostics(), initRiskSimulator()
+✅ Simulator diagnostics verisiyle otomatik doldurma (prefill) mantigi eklendi
+✅ Risk panelinde chart + simulator + diagnostics birlikte calisir hale getirildi
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 101/101 PASS
+❌ Risk simulatoru icin senaryo presetleri (agresif/dengeci/korumaci) ve panelde karar-gecmisi karsilastirma (sonraki adim)
+
+EK GUNCELLEME-60 (2026-04-02)
+✅ Risk simulatoru icin senaryo presetleri eklendi
+✅ public/dashboard.html genisletildi:
+	- applyRiskPreset('aggressive' | 'balanced' | 'protective')
+	- Risk Tani paneline Agresif / Dengeci / Korumaci butonlari
+	- Preset seciminde katsayilarin otomatik set edilmesi + anlik yeniden hesaplama
+✅ Panelde karar-gecmisi karsilastirma bileseni eklendi
+✅ public/dashboard.html genisletildi:
+	- riskCmpA / riskCmpB snapshot secicileri
+	- renderDecisionHistoryComparison(...) ile A/B snapshot karsilastirmasi
+	- delta metrikleri: sync_risk ve confidence farki
+✅ Snapshot endpoint verisi ile karsilastirma paneli baglandi
+✅ Regresyon dogrulamasi:
+	- python -m unittest -q = 101/101 PASS
+❌ Snapshot bazli mini trend dagilimi (decision distribution + rolling mean) karti (sonraki adim)
+
+EK GUNCELLEME-61 (2026-04-02)
+✅ Snapshot bazli mini trend dagilimi karti eklendi
+✅ public/dashboard.html genisletildi:
+	- riskMiniTrendView paneli eklendi
+	- renderSnapshotMiniTrend(...) fonksiyonu eklendi
+	- decision distribution: promote/hold/rollback dagilimi
+	- ortalama metrikler: sync_risk ve confidence
+	- rolling fark: son 5 snapshot vs ilk 5 snapshot (Delta risk/conf)
+✅ Risk Tani veri akisi mini trend paneline baglandi
+	- loadRiskDiagnosticsView(...) icinde renderSnapshotMiniTrend(items) cagrisi
+✅ Ortam engeli giderildi:
+	- eksik paket: aiofiles (venv'e kuruldu)
+✅ Regresyon dogrulamasi:
+	- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q = 101/101 PASS
+❌ Mini trend paneli icin sparkline/mini-bar gorsel katmani (sonraki adim)
+
+EK GUNCELLEME-62 (2026-04-02)
+✅ Mini trend paneli icin sparkline/mini-bar gorsel katmani eklendi
+✅ public/dashboard.html genisletildi:
+	- renderSnapshotMiniTrend(...) icinde karar dagilimi mini-bar satirlari
+	- sync_risk ve confidence icin iki ayri sparkline SVG gorseli
+	- dagilim/ortalama/rolling metrikleri ile birlikte tek panelde birlesik gorunum
+✅ Regresyon dogrulamasi:
+	- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q = 101/101 PASS
+❌ Mini trend paneline tarih filtresi (son 1h/6h/24h) ve threshold-highlight overlay (sonraki adim)
+
+EK GUNCELLEME-63 (2026-04-02)
+✅ Mini trend paneline tarih filtresi eklendi
+✅ public/dashboard.html genisletildi:
+	- Tümü / 1h / 6h / 24h zaman araligi filtre butonlari
+	- setMiniTrendTimeRange(range) fonksiyonu eklendi
+	- renderSnapshotMiniTrend(...) icinde zaman filtre mantigi
+	- filtered = snapshots.filter(ts >= now - timeRange)
+✅ Threshold highlight overlay eklendi
+✅ public/dashboard.html genisletildi:
+	- Mini bar: arka renk meanRisk'e gore bgColor (red/orange/green)
+	- Mini bar: border renk meanRisk'e gore (dark red/orange/green)
+	- Sparkline: threshold line eklendi (0.4 risk level gray line)
+	- Risk odakli gorsel katman: high-risk zones renklendirildi
+✅ Zaman filtre global state: miniTrendTimeRange degiskeni
+✅ Zaman filtre periyodit guncelleme: loadRiskDiagnosticsView() 5s interval
+✅ Ortam: n-hesaplama duzeltildi (arr.length -> filtered.length)
+✅ Regresyon dogrulamasi:
+	- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q = 101/101 PASS
+❌ Mini trend paneline karar tipine gore snapshot detay modal (sonraki adim)
+
+EK GUNCELLEME-64 (2026-04-02)
+✅ Mini trend paneline karar tipine gore snapshot detay modal eklendi
+✅ public/dashboard.html genisletildi:
+	- riskMiniTrendModal HTML modal dialog elemanı
+	- openMiniTrendModal(decision) fonksiyonu eklendi
+	- closeMiniTrendModal() fonksiyonu eklendi
+	- Karar bar'lari tıklanabilir yapildi: onclick="openMiniTrendModal(...)"
+	- Modal icinde o karar turune ait snapshot'lar listelenmesi
+	- Snapshot detay: ts + sync_risk + confidence
+	- Risk-based left border coloring (risk >= 0.6: red, >= 0.4: orange, else: green)
+✅ Global state: miniTrendSelectedDecision degiskeni
+✅ Modal title dinamik guncelleme (decision turune gore)
+✅ Regresyon dogrulamasi:
+	- /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest -q = 101/101 PASS
+✅ FAZ-4 Risk Tanı ve Mini Trend gelistirmeler TAMAMLANDI
+	- EK-45 ile baslandi: Sync telemetrisi genisleme
+	- EK-64 ile sonlandirildi: Karar detay modal entegrasyonu
+	- 20 incremental update (EK-45 .. EK-64)
+	- 20/20 regresyon PASS
+	- Front-end: Risk Tanı panel + simulator + presets + geçmiş karşılaştıksa + mini trend + detay modal + tarih filtre + threshold highlight
+	- Back-end: sync telemetri + trend scoring + EWMA + anomaly + drift + source weighting + autotune + recency bias + latency regime + risk confidence + explainability tree + snapshot persist

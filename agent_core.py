@@ -27,6 +27,7 @@ class AgentState(str, Enum):
 
 LLMCallable = Callable[[list[dict[str, Any]], list[dict[str, Any]]], Awaitable[str | dict[str, Any]]]
 ConfirmationPolicy = Callable[[ActionEnvelope, ToolDefinition], bool]
+CanaryDecisionProvider = Callable[[], dict[str, Any]]
 
 
 @dataclass(slots=True)
@@ -47,6 +48,7 @@ class AgentCore:
         trace_store: TraceStore | None = None,
         confirmation_policy: ConfirmationPolicy | None = None,
         memory_store: MemoryStore | None = None,
+        canary_provider: CanaryDecisionProvider | None = None,
         *,
         max_iterations: int = 12,
     ) -> None:
@@ -55,8 +57,185 @@ class AgentCore:
         self.executor = ActionExecutor(registry)
         self.trace = trace_store or TraceStore()
         self.memory = memory_store
+        self.canary_provider = canary_provider
         self.confirmation_policy = confirmation_policy or self._default_confirmation_policy
         self.max_iterations = max_iterations
+        self.runtime_policy: dict[str, Any] = {
+            "mode": "normal",
+            "write_protect": False,
+            "deny_high_risk": False,
+            "decision": "none",
+            "sync_risk_score": None,
+            "sync_risk_level": None,
+        }
+
+    def _runtime_policy_allows(self, action: ActionEnvelope) -> bool:
+        if self.runtime_policy.get("write_protect") and action.name == "dosya_yaz":
+            return False
+        if self.runtime_policy.get("deny_high_risk") and action.safety_level in {"high", "critical"}:
+            return False
+        return True
+
+    def _derive_canary_decision(self) -> dict[str, Any]:
+        if self.canary_provider:
+            try:
+                provided = self.canary_provider() or {}
+                if isinstance(provided, dict):
+                    return provided
+            except Exception as exc:
+                return {
+                    "decision": "hold",
+                    "reason": [f"provider_exception:{exc.__class__.__name__}"],
+                }
+
+        try:
+            from quality_evaluator import QualityEvaluator
+
+            memory_path = self.memory.path if self.memory else None
+            evaluator = QualityEvaluator(memory_path=memory_path, trace_dir=self.trace.base_dir)
+            use_trend = os.getenv("AGENT_CANARY_TREND_WINDOWS", "0").strip() == "1"
+            if use_trend:
+                trend_ewma = os.getenv("AGENT_CANARY_TREND_EWMA", "0").strip() == "1"
+                try:
+                    trend_ewma_alpha = float(os.getenv("AGENT_CANARY_TREND_EWMA_ALPHA", "0.35"))
+                except Exception:
+                    trend_ewma_alpha = 0.35
+                trend_seasonality = os.getenv("AGENT_CANARY_TREND_SEASONALITY", "0").strip() == "1"
+                try:
+                    trend_seasonality_days = int(os.getenv("AGENT_CANARY_TREND_SEASONALITY_DAYS", "14"))
+                except Exception:
+                    trend_seasonality_days = 14
+                trend_decision = evaluator.trend_canary_decision(
+                    lines=20000,
+                    use_ewma=trend_ewma,
+                    ewma_alpha=trend_ewma_alpha,
+                    use_seasonality=trend_seasonality,
+                    seasonality_lookback_days=max(1, trend_seasonality_days),
+                )
+                decision = {
+                    "decision": trend_decision.get("decision", "hold"),
+                    "reason": trend_decision.get("reason", []),
+                    "ewma": trend_decision.get("ewma", {}),
+                    "seasonality": trend_decision.get("seasonality", {}),
+                    "trend": trend_decision.get("trend", {}),
+                }
+                # trend modunda status/score kısa pencereden türetilir
+                windows = (decision.get("trend", {}) or {}).get("windows", {})
+                short = windows.get("1h") or next(iter(windows.values()), {})
+                return {
+                    **decision,
+                    "status": short.get("status"),
+                    "score": short.get("score"),
+                }
+
+            summary = evaluator.summary(lines=1000, days=7.0)
+            adaptive = os.getenv("AGENT_CANARY_ADAPTIVE", "0").strip() == "1"
+            decision = evaluator.canary_decision(summary, adaptive=adaptive)
+            return {
+                **decision,
+                "status": summary.get("status"),
+                "score": summary.get("score"),
+            }
+        except Exception as exc:
+            return {
+                "decision": "hold",
+                "reason": [f"evaluator_exception:{exc.__class__.__name__}"],
+            }
+
+    async def _apply_runtime_canary_policy(self, ctx: AgentContext) -> None:
+        if os.getenv("AGENT_CANARY_RUNTIME_POLICY", "0").strip() != "1":
+            return
+
+        dec = self._derive_canary_decision()
+        decision = str(dec.get("decision", "hold")).strip().lower()
+
+        mode = "normal"
+        write_protect = False
+        deny_high_risk = False
+
+        if decision == "rollback":
+            mode = "rollback_protect"
+            write_protect = True
+            deny_high_risk = True
+        elif decision == "hold":
+            mode = "hold_cautious"
+            deny_high_risk = True
+        elif decision == "promote":
+            mode = "promote_normal"
+
+        sync_risk_score = None
+        sync_risk_level = None
+        use_sync_risk = os.getenv("AGENT_CANARY_RUNTIME_USE_SYNC_RISK", "1").strip() == "1"
+        if use_sync_risk:
+            try:
+                from quality_evaluator import QualityEvaluator
+
+                st = QualityEvaluator.get_calendar_sync_status()
+                rc = ((st or {}).get("trend_summary", {}) or {}).get("risk_confidence", {}) or {}
+                raw_score = rc.get("score")
+                raw_level = rc.get("level")
+                if raw_score is not None:
+                    sync_risk_score = max(0.0, min(1.0, float(raw_score)))
+                if raw_level is not None:
+                    sync_risk_level = str(raw_level)
+            except Exception:
+                sync_risk_score = None
+                sync_risk_level = None
+
+        try:
+            sync_med = float(os.getenv("AGENT_CANARY_RUNTIME_SYNC_RISK_MEDIUM", "0.5"))
+        except Exception:
+            sync_med = 0.5
+        try:
+            sync_high = float(os.getenv("AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH", "0.75"))
+        except Exception:
+            sync_high = 0.75
+        sync_med = max(0.0, min(1.0, sync_med))
+        sync_high = max(sync_med, min(1.0, sync_high))
+
+        if sync_risk_score is not None:
+            if sync_risk_score >= sync_high:
+                mode = "rollback_protect_sync_risk"
+                write_protect = True
+                deny_high_risk = True
+                decision = "rollback"
+                reasons = dec.get("reason", []) if isinstance(dec.get("reason", []), list) else [str(dec.get("reason"))]
+                reasons.append(f"sync_risk_high:{sync_risk_score}")
+                dec["reason"] = reasons
+            elif sync_risk_score >= sync_med:
+                if mode == "promote_normal":
+                    mode = "hold_cautious_sync_risk"
+                    decision = "hold"
+                deny_high_risk = True
+
+        self.runtime_policy.update(
+            {
+                "mode": mode,
+                "write_protect": write_protect,
+                "deny_high_risk": deny_high_risk,
+                "decision": decision,
+                "sync_risk_score": sync_risk_score,
+                "sync_risk_level": sync_risk_level,
+            }
+        )
+
+        reasons = dec.get("reason", []) if isinstance(dec.get("reason", []), list) else [str(dec.get("reason"))]
+        msg = (
+            f"Canary runtime policy aktif: decision={decision}, mode={mode}, "
+            f"write_protect={write_protect}, deny_high_risk={deny_high_risk}, "
+            f"reason={','.join(str(r) for r in reasons)}"
+        )
+        ctx.history.append({"role": "system", "content": msg})
+        await self.trace.append(
+            {
+                "event": "runtime_policy_applied",
+                "decision": decision,
+                "mode": mode,
+                "write_protect": write_protect,
+                "deny_high_risk": deny_high_risk,
+                "reason": reasons,
+            }
+        )
 
     @staticmethod
     def _default_confirmation_policy(action: ActionEnvelope, tool: ToolDefinition) -> bool:
@@ -363,6 +542,7 @@ class AgentCore:
         ctx = AgentContext(objective=objective)
         ctx.history.append({"role": "user", "content": objective})
         await self.trace.append({"event": "run_start", "objective": objective})
+        await self._apply_runtime_canary_policy(ctx)
 
         for iteration in range(1, self.max_iterations + 1):
             ctx.state = AgentState.THINKING
@@ -510,6 +690,34 @@ class AgentCore:
 
             for action in actions:
                 tool = self.registry.get(action.name)
+                if not self._runtime_policy_allows(action):
+                    record = {
+                        "tool": action.name,
+                        "trace_id": action.trace_id,
+                        "ok": False,
+                        "output": "",
+                        "error": f"Canary runtime policy nedeniyle engellendi (mode={self.runtime_policy.get('mode')})",
+                        "attempts": 0,
+                    }
+                    await self.trace.append(
+                        {
+                            "event": "tool_denied",
+                            "iter": iteration,
+                            "policy": "canary_runtime",
+                            "policy_mode": self.runtime_policy.get("mode"),
+                            **record,
+                        }
+                    )
+                    ctx.tool_results.append(record)
+                    ctx.history.append(
+                        {
+                            "role": "tool",
+                            "name": record["tool"],
+                            "content": json.dumps(record, ensure_ascii=False),
+                        }
+                    )
+                    continue
+
                 allowed = self.confirmation_policy(action, tool)
                 if not allowed:
                     record = {

@@ -1,0 +1,23 @@
+KULLANICI ISTEGI:
+- "deam" (devam)
+
+YAPILANLAR (BU TUR):
+1) FAZ-4 canary karar mekanizmasina adaptif threshold tuning eklendi:
+   - quality_evaluator.py
+   - Yeni fonksiyon: adaptive_thresholds(summary, ...)
+   - volatility sinyaline gore dinamik esikler hesaplanir
+2) canary_decision adaptif calisacak sekilde genisletildi:
+   - yeni parametre: adaptive=True/False
+   - adaptive calisinca thresholds dinamik belirlenir
+3) API genisletmesi:
+   - /api/evaluator/canary-decision endpointine adaptive parametresi eklendi
+   - yeni endpoint: /api/evaluator/adaptive-thresholds
+4) AgentCore entegrasyonu:
+   - AGENT_CANARY_ADAPTIVE=1 ise evaluator.canary_decision(..., adaptive=True) kullanilir
+5) Test kapsami genisletildi:
+   - test_adaptive_thresholds_increase_strictness_on_high_volatility
+   - test_canary_decision_adaptive_sets_flag
+
+DOGRULAMA:
+- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+- Sonuc: 57/57 PASS

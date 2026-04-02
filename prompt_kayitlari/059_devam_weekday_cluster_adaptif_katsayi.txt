@@ -1,0 +1,30 @@
+Kullanici istegi: "evet" (weekday-cluster benzerligi ve adaptif katsayi uygula)
+
+Yapilanlar (EK GUNCELLEME-35):
+- quality_evaluator.py icinde seasonality modeline weekday-cluster benzerligi eklendi.
+- Weekday/Weekend cluster hesaplari current hour icin yapiliyor:
+  - weekday_cluster (weekday | weekend)
+  - cluster_baseline
+  - neighbor_baseline (komsu gunler)
+  - cluster_similarity
+  - cluster_adaptive_coef
+- DOW-HOUR baseline artik cluster ile blend ediliyor:
+  - cluster_blended_baseline = coef*dow_hour + (1-coef)*cluster_baseline
+- Nihai confidence, cluster adaptif katsayisi ile olcekleniyor:
+  - confidence = raw_confidence * (0.7 + 0.3*cluster_adaptive_coef)
+- Yeni seasonality metadata alanlari eklendi:
+  - cluster_blended_baseline, weekday_cluster, cluster_baseline, neighbor_baseline
+  - cluster_similarity, cluster_adaptive_coef
+  - cluster_coverage, neighbor_coverage
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - seasonality metadata testi yeni cluster alanlarini dogruluyor
+  - fallback testinde cluster_adaptive_coef aralik kontrolu eklendi
+  - yeni test: test_seasonality_adjustment_weekday_cluster_similarity_affects_coef
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 35/35 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 68/68 PASS

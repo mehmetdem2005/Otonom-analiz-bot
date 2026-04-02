@@ -1,0 +1,34 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-38):
+- quality_evaluator.py icinde takvim override katmani hareketli gunleri ve severity agirligini destekleyecek sekilde genisletildi.
+- Yeni takvim eslesme yetenekleri:
+  - date (tek tarih)
+  - month_day (tekrarlayan sabit tarih)
+  - dates (tarih listesi)
+  - start_date + end_date (tarih araligi)
+- Severity mantigi eklendi:
+  - low / medium / high / critical veya numeric agirlik
+  - calendar_adaptive_coef = coverage tabanli katsayi * severity weight
+  - calendar aktifken confidence de severity ile yeniden olceklenir
+- Yeni yardimci fonksiyonlar:
+  - _parse_iso_date
+  - _calendar_severity_weight
+- Seasonality metadata genisletildi:
+  - calendar_severity
+  - calendar_severity_weight
+- calendar_overrides.json genisletildi:
+  - sabit tarihli kayitlara severity eklendi
+  - Ramazan Bayrami ve Kurban Bayrami icin 2025-2027 tarih araliklari eklendi
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - calendar metadata testine severity alanlari eklendi
+  - yeni test: moving holiday range match
+  - yeni test: higher severity -> higher calendar_adaptive_coef
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 39/39 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 72/72 PASS

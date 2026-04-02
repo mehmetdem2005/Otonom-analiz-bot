@@ -1,0 +1,35 @@
+Kullanici istegi: "evet ama tek tek onay alma ne planliyorsan hepsine toplu onay al"
+
+Yapilanlar (EK GUNCELLEME-51):
+- quality_evaluator.py icinde trend skor hesaplamasi source_type bazli agirliklandirma ile zenginlestirildi.
+- Yeni env ayarlari:
+  - AGENT_CANARY_SYNC_SOURCE_WEIGHT_DEFAULT
+  - AGENT_CANARY_SYNC_SOURCE_WEIGHT_<SOURCE_TYPE>
+    Ornek: AGENT_CANARY_SYNC_SOURCE_WEIGHT_HTTP_JSON, AGENT_CANARY_SYNC_SOURCE_WEIGHT_FILE
+- Trend skor, volatilite ve anomaly delta hesaplari artik outcome_weight * source_type_weight ile hesaplanir.
+
+- Pencere-ici drift metrikleri eklendi:
+  - trend_summary.drift_1h
+  - trend_summary.drift_24h
+  - trend_summary.drift_gap
+- Drift detaylari:
+  - attempts
+  - first_half_score
+  - last_half_score
+  - intra_window_delta
+  - instability
+
+- trend_summary source weighting metadata eklendi:
+  - source_weighting.enabled
+  - source_weighting.default_weight
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_trend_source_type_weighting_uses_env
+  - test_calendar_sync_trend_includes_intra_window_drift_metrics
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 56/56 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 89/89 PASS

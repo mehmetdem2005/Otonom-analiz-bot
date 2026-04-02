@@ -1,0 +1,17 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"evet"
+
+Yapilanlar:
+- AgentCore rollback sonrasi yonlendirme guclendirildi:
+  - narrow test fail oldugunda kok neden ozeti otomatik cikarildi
+  - ozet system history'ye enjekte edildi
+  - aday dosya/satirlar otomatik dosya_oku ile line-window okunup history'ye eklendi
+- Yeni trace eventleri eklendi:
+  - auto_rollback_guidance_added
+  - auto_rollback_candidate_read
+- Test guncellemesi:
+  - test_auto_rollback_applied_when_inline_narrow_test_fails guidance + read dogrulamalari ile genisletildi
+- Dogrulama:
+  - /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest discover -s /workspaces/Otonom-analiz-bot/tests -t /workspaces/Otonom-analiz-bot -p 'test_react_*.py' -v
+  - Sonuc: 18/18 PASS

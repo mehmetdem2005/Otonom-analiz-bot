@@ -1,0 +1,21 @@
+DEV PLAN MASTER - INDEKS
+Tarih: 2026-04-01
+Amac: Kod yazmada uzman, kendi kendini egiten, olculebilir ve gercek otonom AI chatbot sistemi.
+
+OKUMA SIRASI
+1) DEV_PLAN_MASTER.txt
+2) 01_CORE_AGENT/PLAN.txt
+3) 02_TOOLS_SECURITY/PLAN.txt
+4) 03_MEMORY_DREAM/PLAN.txt
+5) 04_AUTONOMOUS_TRAINING/PLAN.txt
+6) 05_DEPLOY_GOVERNANCE/PLAN.txt
+
+ILKELER
+- Illuzyon yok: Her iddia test ve log ile dogrulanir.
+- Yasal kaynak: Sadece acik kaynak, lisans uyumlu depolar ve resmi dokumanlar.
+- Groq gecici yardimci: Nihai hedef API'siz yerel birincil calisma.
+- 0 rutin insan mudahalesi: Ancak guvenlikte devre kesici ve acil durdurma her zaman acik.
+
+KAPSAM SINIRI
+- "GitHub'daki tum acik kaynaklar" pratikte sinirsizdir.
+- Uygulanabilir yontem: Lisans ve konu filtreli kaynak havuzu + surekli tarama.

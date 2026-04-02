@@ -1,0 +1,24 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-39):
+- quality_evaluator.py icine dis JSON kaynaktan takvim override senkronizasyonu eklendi.
+- Yeni yardimci yapilar:
+  - _calendar_file_path()
+  - _calendar_signature(...)
+  - _normalize_calendar_override(...)
+  - _load_calendar_overrides_from_source(...)
+  - sync_calendar_overrides(...)
+- Sync kaynagi lokal dosya veya http/https JSON endpoint olabilir.
+- merge=True modunda mevcut takvim kayitlariyla birlestirme; merge=False modunda replace destegi eklendi.
+- web_arayuzu.py icine yeni endpointler eklendi:
+  - GET /api/evaluator/calendar-overrides
+  - POST /api/evaluator/calendar-sync
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_merges_external_source_file
+  - test_calendar_sync_replace_mode_discards_existing_rows
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 41/41 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 74/74 PASS

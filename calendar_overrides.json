@@ -1,0 +1,78 @@
+[
+  {
+    "label": "yeni_yil",
+    "month_day": "01-01",
+    "severity": "medium"
+  },
+  {
+    "label": "ulusal_egemenlik_ve_cocuk_bayrami",
+    "month_day": "04-23",
+    "severity": "medium"
+  },
+  {
+    "label": "emek_ve_dayanisma_gunu",
+    "month_day": "05-01",
+    "severity": "medium"
+  },
+  {
+    "label": "ataturku_anma_genclik_ve_spor_bayrami",
+    "month_day": "05-19",
+    "severity": "medium"
+  },
+  {
+    "label": "demokrasi_ve_milli_birlik_gunu",
+    "month_day": "07-15",
+    "severity": "high"
+  },
+  {
+    "label": "zafer_bayrami",
+    "month_day": "08-30",
+    "severity": "medium"
+  },
+  {
+    "label": "cumhuriyet_bayrami",
+    "month_day": "10-29",
+    "severity": "high"
+  },
+  {
+    "label": "yil_sonu",
+    "month_day": "12-31",
+    "severity": "medium"
+  },
+  {
+    "label": "ramazan_bayrami_2025",
+    "start_date": "2025-03-30",
+    "end_date": "2025-04-01",
+    "severity": "high"
+  },
+  {
+    "label": "ramazan_bayrami_2026",
+    "start_date": "2026-03-20",
+    "end_date": "2026-03-22",
+    "severity": "high"
+  },
+  {
+    "label": "ramazan_bayrami_2027",
+    "start_date": "2027-03-10",
+    "end_date": "2027-03-12",
+    "severity": "high"
+  },
+  {
+    "label": "kurban_bayrami_2025",
+    "start_date": "2025-06-06",
+    "end_date": "2025-06-09",
+    "severity": "critical"
+  },
+  {
+    "label": "kurban_bayrami_2026",
+    "start_date": "2026-05-27",
+    "end_date": "2026-05-30",
+    "severity": "critical"
+  },
+  {
+    "label": "kurban_bayrami_2027",
+    "start_date": "2027-05-16",
+    "end_date": "2027-05-19",
+    "severity": "critical"
+  }
+]

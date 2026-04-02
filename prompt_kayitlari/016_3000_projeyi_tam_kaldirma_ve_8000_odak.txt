@@ -1,0 +1,9 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"bak ordski projeyi direkt yok etmeni isiyorum ben 8000 de yapay zeka gelistirme yapiyorum tek amacim o"
+
+Yapilanlar:
+- Port 3000 Node/Express tarafi tamamen kaldirildi.
+- Kalan legacy dosyalar temizlendi: live_news_fusion.py, tts_edge.py, mimari_dal_agaci.txt, ornek zip.
+- README sadece Port 8000/FastAPI ajan sistemi odakli olacak sekilde bastan yazildi.
+- plan_ve_durum_listesi.txt 8000 odakli temizlik maddeleriyle guncellendi.

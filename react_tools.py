@@ -323,13 +323,28 @@ def _make_hafiza_ara(memory: MemoryStore | None):
             return {"status": "error", "message": "query zorunlu"}
         limit = int(args.get("limit", 10))
         path = str(args.get("path", "")).strip()
-        results = memory.semantic_search(query=query, limit=limit, path=path)
+        mode = str(args.get("mode", "auto")).strip().lower() or "auto"
+        time_weight = float(args.get("time_weight", 0.15))
+        half_life_days = float(args.get("half_life_days", 14.0))
+        results = memory.semantic_search(
+            query=query,
+            limit=limit,
+            path=path,
+            mode=mode,
+            time_weight=time_weight,
+            half_life_days=half_life_days,
+        )
         return {
             "status": "ok",
+            "mode": mode,
+            "time_weight": time_weight,
+            "half_life_days": half_life_days,
             "count": len(results),
             "results": [
                 {
                     "score": x["score"],
+                    "relevance": x.get("relevance"),
+                    "freshness": x.get("freshness"),
                     "record": {
                         "ts": x["record"].ts,
                         "kind": x["record"].kind,

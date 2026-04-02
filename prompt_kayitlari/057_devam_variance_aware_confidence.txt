@@ -1,0 +1,26 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-33):
+- quality_evaluator.py icinde mevsimsellik confidence modeli gelistirildi (variance-aware).
+- DOW-HOUR confidence artik sadece orneklem buyuklugune degil, varyans ve oynakliga da bakiyor.
+- Hesaplanan ara metrikler:
+  - sample_confidence
+  - variance_confidence
+  - volatility_confidence
+  - variance
+  - volatility
+- Final confidence:
+  confidence = sample_confidence * (0.6*variance_confidence + 0.4*volatility_confidence)
+- DOW-HOUR baseline etkisi, bu confidence ile weighted olarak uygulanmaya devam eder.
+
+Testler:
+- tests/test_quality_evaluator.py
+  - seasonality metadata testine yeni confidence/varyans alan kontrolleri eklendi
+  - fallback testine sample_confidence=0.0 dogrulamasi eklendi
+  - yeni test: test_trend_canary_decision_seasonality_variance_reduces_confidence
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 33/33 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 66/66 PASS

@@ -1,0 +1,14 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"ne gerekiyorsa yap hep" (devam)
+
+Yapilanlar:
+- react_tools.py sertlestirildi:
+  - path escape engeli
+  - dosya uzantisi allowlist
+  - tehlikeli Python kaliplari engeli
+- Yeni arac eklendi: test_calistir (unittest/pytest)
+- Yeni testler eklendi: tests/test_react_tools.py
+- ReAct test seti sonucu: 8/8 PASS
+- Backend AGENT_REACT_CORE_ENABLED=1 ile yeniden baslatildi.
+- /api/traces/recent endpointi yanit veriyor.

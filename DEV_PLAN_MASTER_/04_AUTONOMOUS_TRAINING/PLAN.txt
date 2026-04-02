@@ -1,0 +1,31 @@
+BOLUM 4 - TAM OTONOM OGRENME VE EGITIM
+
+HEDEF
+- Baslat tusundan sonra sistem kendi kendini gelistirsin.
+- Groq gecici yardimci olsun; zamanla yerel modele gecilsin.
+
+ONEMLI GERCEKLIK
+- "GitHub'daki tum acik kaynaklari tarama" sinirsiz ve kontrolsuzdur.
+- Uygulanabilir model: lisans uyumlu kaynak havuzu + surekli crawler + kalite filtreleri.
+
+KAYNAK HAVUZU KURALI
+- Izinli lisanslar: MIT, Apache-2.0, BSD, MPL (opsiyonel)
+- Kara liste: bilinmeyen lisans, no-license, acik yasakli depolar
+- Oncelik: agent framework, test automation, static analysis, Python tooling
+
+EGITIM ASAMALARI
+- A0: Groq yardimli veri toplama ve etiketleme
+- A1: 3B-7B yerel model SFT
+- A2: hata loglarindan otomatik veri zenginlestirme
+- A3: evaluator skor esigine gore model promotion
+- A4: API'siz birincil calisma, Groq sadece fallback
+
+AUTONOMI KONTROLU
+- 0 rutin mudahale: scheduler + queue + guardrails
+- Safety breaker: kritik hata durumunda otomatik durdur/geri al
+- Tam izlenebilirlik: her ogrenme adimi log + metrik
+
+KABUL KRITERI
+- API kapali iken minimum gorev seti basariyla tamamlanir.
+- Yeni model eskiye gore belirlenen benchmarkta daha iyi skora ulasir.
+- Regression olursa otomatik rollback calisir.

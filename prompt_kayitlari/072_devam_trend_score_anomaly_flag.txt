@@ -1,0 +1,25 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-48):
+- quality_evaluator.py icinde sync status analitigi trend skor ve anomaly flag ile genisletildi.
+- Yeni hesaplama mantigi:
+  - trend_summary.score_1h
+  - trend_summary.score_24h
+  - trend_summary.delta_1h_vs_24h
+  - trend_summary.anomaly
+  - trend_summary.reason
+- Outcome agirliklandirma eklendi:
+  - ok/noop/noop_remote_not_modified/fresh/cooldown/error/skipped
+- Kisa pencere belirgin dusus durumunda anomaly=True olacak sekilde heuristic eklendi.
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - test_calendar_sync_status_keeps_bounded_history -> trend_summary varlik kontrolu
+  - test_calendar_sync_status_window_error_type_distribution -> trend alan kontrolleri
+  - yeni test: test_calendar_sync_status_trend_anomaly_flags_short_window_drop
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 51/51 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 84/84 PASS

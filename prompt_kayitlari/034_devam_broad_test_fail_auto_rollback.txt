@@ -1,0 +1,15 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- AgentCore broad-regression rollback davranisi eklendi:
+  - AGENT_AUTOTEST_BROAD_AFTER_WRITE=1 ise dar testten sonra broad test kosulur
+  - broad test fail olursa AGENT_AUTOROLLBACK_ON_BROAD_FAIL=1 ile otomatik rollback uygulanir (default: acik)
+  - trace event: auto_rollback_applied_broad
+  - history'ye broad-regression odakli yonlendirme mesaji eklenir
+- Yeni unit test eklendi:
+  - test_auto_rollback_on_broad_test_fail_when_enabled
+- Dogrulama:
+  - /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest discover -s /workspaces/Otonom-analiz-bot/tests -t /workspaces/Otonom-analiz-bot -p 'test_react_*.py' -v
+  - Sonuc: 19/19 PASS

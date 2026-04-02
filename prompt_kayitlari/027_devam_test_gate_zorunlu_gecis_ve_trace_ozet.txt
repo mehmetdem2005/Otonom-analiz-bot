@@ -1,0 +1,15 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- AgentCore test gate guclendirildi:
+  - basarisiz test varsa final reddediliyor
+  - bugfix/hedef duzeltme gorevinde test gecmeden final kabul edilmiyor
+- Yeni test eklendi:
+  - test_failed_test_gate_rejects_final_until_pass
+- ReAct test seti sonucu: 11/11 PASS
+- Yeni endpoint eklendi:
+  - /api/traces/summary
+- Dashboard traces gorunumune ozet metrik kutulari eklendi.
+- Backend ReAct modunda yeniden baslatildi.

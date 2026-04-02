@@ -1,0 +1,12 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"devam et ama once bir sozluk klasoru ekle, fallback, fonksiyon, ann gibi seyler nedir bilmiyorum hepsini yaz yazilim cahiliyim"
+
+Yapilanlar:
+- Yeni klasor eklendi: sozluk/
+- Yeni dosya eklendi: sozluk/yazilim-sozlugu.md
+- Dosyada yazilim bilmeyen biri icin sade ve kisa anlatimla temel kavramlar aciklandi:
+  - fonksiyon, API, endpoint, fallback, auto mode
+  - semantik arama, embedding, ANN, index, sidecar
+  - test, regression, retry, timeout, rollback vb.
+- Dosya "anlamadigin yeni kelime olursa ekleyelim" yaklasimiyla acik uc halinde birakildi.

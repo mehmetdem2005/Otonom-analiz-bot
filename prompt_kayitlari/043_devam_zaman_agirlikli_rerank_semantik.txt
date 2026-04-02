@@ -1,0 +1,23 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- MemoryStore semantic_search zaman agirlikli rerank ile guclendirildi
+- Yeni parametreler:
+  - time_weight (0..1)
+  - half_life_days
+- Skor formulu:
+  - final_score = (1-time_weight) * relevance + time_weight * freshness
+  - freshness = exp(-age / half_life)
+- Tum modlara uygulandi: overlap, embedding, model, auto
+- Sonuc payload zenginlestirildi: score + relevance + freshness
+- API genisletmesi:
+  - /api/memory/search -> time_weight, half_life_days parametreleri eklendi
+- Tool genisletmesi:
+  - hafiza_ara -> time_weight, half_life_days destekli
+- Dashboard memory search auto + zaman agirlikli parametrelerle cagiracak sekilde guncellendi
+
+Testler:
+- tests.test_memory_store: 14/14 PASS
+- tests.test_react_tools: 13/13 PASS

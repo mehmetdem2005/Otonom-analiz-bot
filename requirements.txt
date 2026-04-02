@@ -13,3 +13,4 @@ accelerate>=0.28.0
 bitsandbytes>=0.43.0
 datasets>=2.18.0
 torch>=2.2.0
+sentence-transformers>=3.0.0

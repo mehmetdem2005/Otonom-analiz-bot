@@ -4,6 +4,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from agent_core import AgentCore, AgentState
 from tool_registry import ToolRegistry, ToolDefinition
@@ -526,6 +527,303 @@ class AgentCoreTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.final_answer, "done")
         self.assertEqual(rollbacks["n"], 1)
         self.assertGreaterEqual(tests["n"], 3)
+
+    async def test_runtime_canary_policy_blocks_write_on_rollback(self):
+        calls = {"n": 0}
+        writes = {"n": 0}
+
+        async def llm(history, tools):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {
+                    "actions": [
+                        {
+                            "name": "dosya_yaz",
+                            "args": {"path": "app/a.py", "content": "x=1"},
+                            "timeout_sec": 2,
+                            "retry": 0,
+                            "safety_level": "high",
+                        }
+                    ]
+                }
+            return {"final": "done"}
+
+        async def write_tool(_args):
+            writes["n"] += 1
+            return "written"
+
+        registry = ToolRegistry()
+        registry.register(ToolDefinition(name="dosya_yaz", description="write", execute=write_tool))
+
+        prev = os.environ.get("AGENT_CANARY_RUNTIME_POLICY")
+        os.environ["AGENT_CANARY_RUNTIME_POLICY"] = "1"
+        try:
+            core = AgentCore(
+                llm,
+                registry,
+                canary_provider=lambda: {"decision": "rollback", "reason": ["test"]},
+                max_iterations=4,
+            )
+            ctx = await core.run("normal gorev")
+        finally:
+            if prev is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_POLICY", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_POLICY"] = prev
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        self.assertEqual(ctx.final_answer, "done")
+        self.assertEqual(writes["n"], 0)
+        denied = [r for r in ctx.tool_results if r.get("tool") == "dosya_yaz"]
+        self.assertTrue(denied)
+        self.assertFalse(denied[0]["ok"])
+        self.assertIn("Canary runtime policy", denied[0]["error"])
+
+    async def test_runtime_canary_policy_uses_trend_mode(self):
+        calls = {"n": 0}
+        writes = {"n": 0}
+
+        async def llm(history, tools):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {
+                    "actions": [
+                        {
+                            "name": "dosya_yaz",
+                            "args": {"path": "app/b.py", "content": "x=2"},
+                            "timeout_sec": 2,
+                            "retry": 0,
+                            "safety_level": "high",
+                        }
+                    ]
+                }
+            return {"final": "done"}
+
+        async def write_tool(_args):
+            writes["n"] += 1
+            return "written"
+
+        registry = ToolRegistry()
+        registry.register(ToolDefinition(name="dosya_yaz", description="write", execute=write_tool))
+
+        prev_runtime = os.environ.get("AGENT_CANARY_RUNTIME_POLICY")
+        prev_trend = os.environ.get("AGENT_CANARY_TREND_WINDOWS")
+        os.environ["AGENT_CANARY_RUNTIME_POLICY"] = "1"
+        os.environ["AGENT_CANARY_TREND_WINDOWS"] = "1"
+        try:
+            core = AgentCore(
+                llm,
+                registry,
+                canary_provider=lambda: {"decision": "hold", "reason": ["trend-test"]},
+                max_iterations=4,
+            )
+            ctx = await core.run("normal gorev")
+        finally:
+            if prev_runtime is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_POLICY", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_POLICY"] = prev_runtime
+            if prev_trend is None:
+                os.environ.pop("AGENT_CANARY_TREND_WINDOWS", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_WINDOWS"] = prev_trend
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        self.assertEqual(ctx.final_answer, "done")
+        self.assertEqual(writes["n"], 0)
+
+    async def test_runtime_canary_policy_uses_trend_ewma_mode_without_provider(self):
+        calls = {"n": 0}
+        writes = {"n": 0}
+
+        async def llm(history, tools):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {
+                    "actions": [
+                        {
+                            "name": "dosya_yaz",
+                            "args": {"path": "app/c.py", "content": "x=3"},
+                            "timeout_sec": 2,
+                            "retry": 0,
+                            "safety_level": "high",
+                        }
+                    ]
+                }
+            return {"final": "done"}
+
+        async def write_tool(_args):
+            writes["n"] += 1
+            return "written"
+
+        registry = ToolRegistry()
+        registry.register(ToolDefinition(name="dosya_yaz", description="write", execute=write_tool))
+
+        prev_runtime = os.environ.get("AGENT_CANARY_RUNTIME_POLICY")
+        prev_trend = os.environ.get("AGENT_CANARY_TREND_WINDOWS")
+        prev_ewma = os.environ.get("AGENT_CANARY_TREND_EWMA")
+        prev_alpha = os.environ.get("AGENT_CANARY_TREND_EWMA_ALPHA")
+        os.environ["AGENT_CANARY_RUNTIME_POLICY"] = "1"
+        os.environ["AGENT_CANARY_TREND_WINDOWS"] = "1"
+        os.environ["AGENT_CANARY_TREND_EWMA"] = "1"
+        os.environ["AGENT_CANARY_TREND_EWMA_ALPHA"] = "0.25"
+        try:
+            core = AgentCore(llm, registry, max_iterations=4)
+            ctx = await core.run("normal gorev")
+        finally:
+            if prev_runtime is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_POLICY", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_POLICY"] = prev_runtime
+            if prev_trend is None:
+                os.environ.pop("AGENT_CANARY_TREND_WINDOWS", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_WINDOWS"] = prev_trend
+            if prev_ewma is None:
+                os.environ.pop("AGENT_CANARY_TREND_EWMA", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_EWMA"] = prev_ewma
+            if prev_alpha is None:
+                os.environ.pop("AGENT_CANARY_TREND_EWMA_ALPHA", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_EWMA_ALPHA"] = prev_alpha
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        self.assertEqual(ctx.final_answer, "done")
+        self.assertEqual(writes["n"], 0)
+
+    async def test_runtime_canary_policy_uses_trend_seasonality_mode(self):
+        calls = {"n": 0}
+        writes = {"n": 0}
+
+        async def llm(history, tools):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {
+                    "actions": [
+                        {
+                            "name": "dosya_yaz",
+                            "args": {"path": "app/d.py", "content": "x=4"},
+                            "timeout_sec": 2,
+                            "retry": 0,
+                            "safety_level": "high",
+                        }
+                    ]
+                }
+            return {"final": "done"}
+
+        async def write_tool(_args):
+            writes["n"] += 1
+            return "written"
+
+        registry = ToolRegistry()
+        registry.register(ToolDefinition(name="dosya_yaz", description="write", execute=write_tool))
+
+        prev_runtime = os.environ.get("AGENT_CANARY_RUNTIME_POLICY")
+        prev_trend = os.environ.get("AGENT_CANARY_TREND_WINDOWS")
+        prev_season = os.environ.get("AGENT_CANARY_TREND_SEASONALITY")
+        prev_days = os.environ.get("AGENT_CANARY_TREND_SEASONALITY_DAYS")
+        os.environ["AGENT_CANARY_RUNTIME_POLICY"] = "1"
+        os.environ["AGENT_CANARY_TREND_WINDOWS"] = "1"
+        os.environ["AGENT_CANARY_TREND_SEASONALITY"] = "1"
+        os.environ["AGENT_CANARY_TREND_SEASONALITY_DAYS"] = "7"
+        try:
+            core = AgentCore(llm, registry, max_iterations=4)
+            ctx = await core.run("normal gorev")
+        finally:
+            if prev_runtime is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_POLICY", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_POLICY"] = prev_runtime
+            if prev_trend is None:
+                os.environ.pop("AGENT_CANARY_TREND_WINDOWS", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_WINDOWS"] = prev_trend
+            if prev_season is None:
+                os.environ.pop("AGENT_CANARY_TREND_SEASONALITY", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_SEASONALITY"] = prev_season
+            if prev_days is None:
+                os.environ.pop("AGENT_CANARY_TREND_SEASONALITY_DAYS", None)
+            else:
+                os.environ["AGENT_CANARY_TREND_SEASONALITY_DAYS"] = prev_days
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        self.assertEqual(ctx.final_answer, "done")
+        self.assertEqual(writes["n"], 0)
+
+    async def test_runtime_canary_policy_sync_risk_overrides_promote(self):
+        calls = {"n": 0}
+        writes = {"n": 0}
+
+        async def llm(history, tools):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {
+                    "actions": [
+                        {
+                            "name": "dosya_yaz",
+                            "args": {"path": "app/e.py", "content": "x=5"},
+                            "timeout_sec": 2,
+                            "retry": 0,
+                            "safety_level": "high",
+                        }
+                    ]
+                }
+            return {"final": "done"}
+
+        async def write_tool(_args):
+            writes["n"] += 1
+            return "written"
+
+        registry = ToolRegistry()
+        registry.register(ToolDefinition(name="dosya_yaz", description="write", execute=write_tool))
+
+        prev_runtime = os.environ.get("AGENT_CANARY_RUNTIME_POLICY")
+        prev_sync = os.environ.get("AGENT_CANARY_RUNTIME_USE_SYNC_RISK")
+        prev_high = os.environ.get("AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH")
+        os.environ["AGENT_CANARY_RUNTIME_POLICY"] = "1"
+        os.environ["AGENT_CANARY_RUNTIME_USE_SYNC_RISK"] = "1"
+        os.environ["AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH"] = "0.7"
+        try:
+            with patch(
+                "quality_evaluator.QualityEvaluator.get_calendar_sync_status",
+                return_value={
+                    "trend_summary": {
+                        "risk_confidence": {
+                            "score": 0.9,
+                            "level": "high",
+                        }
+                    }
+                },
+            ):
+                core = AgentCore(
+                    llm,
+                    registry,
+                    canary_provider=lambda: {"decision": "promote", "reason": ["provider-promote"]},
+                    max_iterations=4,
+                )
+                ctx = await core.run("normal gorev")
+        finally:
+            if prev_runtime is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_POLICY", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_POLICY"] = prev_runtime
+            if prev_sync is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_USE_SYNC_RISK", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_USE_SYNC_RISK"] = prev_sync
+            if prev_high is None:
+                os.environ.pop("AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH", None)
+            else:
+                os.environ["AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH"] = prev_high
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        self.assertEqual(ctx.final_answer, "done")
+        self.assertEqual(writes["n"], 0)
+        self.assertEqual(core.runtime_policy.get("mode"), "rollback_protect_sync_risk")
+        self.assertEqual(core.runtime_policy.get("decision"), "rollback")
+        self.assertAlmostEqual(float(core.runtime_policy.get("sync_risk_score") or 0.0), 0.9, places=3)
 
 
 if __name__ == "__main__":

@@ -155,6 +155,63 @@ class ReactToolsTests(unittest.IsolatedAsyncioTestCase):
             self.assertGreaterEqual(result["count"], 1)
             self.assertEqual(result["results"][0]["record"]["path"], "services/api.py")
 
+    async def test_hafiza_ara_mode_passthrough(self):
+        """hafiza_ara mode=auto parametresini kabul edip döndürmeli."""
+        from memory_store import MemoryStore
+
+        with tempfile.TemporaryDirectory() as td:
+            mem = MemoryStore(Path(td) / "mem.jsonl")
+            reg = build_default_registry(Path(td), memory_store=mem)
+            yaz = reg.get("hafiza_yaz")
+            ara = reg.get("hafiza_ara")
+
+            await yaz.execute(
+                {
+                    "event": "fix_attempt",
+                    "path": "services/cache.py",
+                    "hint": "cache timeout",
+                    "objective": "cache timeout fix",
+                    "success": False,
+                }
+            )
+            result = await ara.execute({"query": "cache timeout", "limit": 5, "mode": "auto"})
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(result["mode"], "auto")
+            self.assertGreaterEqual(result["count"], 1)
+
+    async def test_hafiza_ara_time_weight_passthrough(self):
+        """hafiza_ara time_weight ve half_life_days parametrelerini döndürmeli."""
+        from memory_store import MemoryStore
+
+        with tempfile.TemporaryDirectory() as td:
+            mem = MemoryStore(Path(td) / "mem.jsonl")
+            reg = build_default_registry(Path(td), memory_store=mem)
+            yaz = reg.get("hafiza_yaz")
+            ara = reg.get("hafiza_ara")
+
+            await yaz.execute(
+                {
+                    "event": "fix_attempt",
+                    "path": "services/search.py",
+                    "hint": "semantic timeout",
+                    "objective": "search timeout fix",
+                    "success": False,
+                }
+            )
+            result = await ara.execute(
+                {
+                    "query": "search timeout",
+                    "limit": 5,
+                    "mode": "auto",
+                    "time_weight": 0.3,
+                    "half_life_days": 7,
+                }
+            )
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(result["time_weight"], 0.3)
+            self.assertEqual(result["half_life_days"], 7.0)
+            self.assertGreaterEqual(result["count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

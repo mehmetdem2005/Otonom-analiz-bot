@@ -703,6 +703,12 @@
                 <span class="menu-dot">●</span>
             </div>
 
+            <div class="menu-item" data-view="risk">
+                <span class="menu-icon">🧪</span>
+                <span>Risk Tanı</span>
+                <span class="menu-dot">●</span>
+            </div>
+
             <!-- Agents List -->
             <div class="sidebar-title" style="margin-top: 16px;">Ajanlar</div>
             <div class="agent-list" id="agentList">
@@ -946,8 +952,108 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Risk Diagnostics -->
+                    <div class="view-panel" data-view="risk">
+                        <div style="display:flex;flex-direction:column;height:100%;padding:16px;gap:12px;">
+                            <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>Trend Risk Tanı</span>
+                                <button class="btn btn-secondary" onclick="loadRiskDiagnosticsView()">Yenile</button>
+                            </div>
+                            <div id="riskSummaryRow" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;"></div>
+                            <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;">
+                                <div style="font-size:12px;color:#94a3b8;font-weight:700;">Interaktif Threshold Simülatörü</div>
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                    <button class="btn btn-secondary" onclick="applyRiskPreset('aggressive')">Agresif</button>
+                                    <button class="btn btn-secondary" onclick="applyRiskPreset('balanced')">Dengeci</button>
+                                    <button class="btn btn-secondary" onclick="applyRiskPreset('protective')">Korumacı</button>
+                                </div>
+                                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;">
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">delta
+                                        <input id="simDelta" type="number" step="0.01" value="-0.25" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:#0f172a;color:var(--ink);" />
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">base
+                                        <input id="simBase" type="number" step="0.01" value="0.25" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:#0f172a;color:var(--ink);" />
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">vol_coef
+                                        <input id="simVolCoef" type="number" step="0.01" value="0.35" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:#0f172a;color:var(--ink);" />
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">drift_coef
+                                        <input id="simDriftCoef" type="number" step="0.01" value="0.25" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:#0f172a;color:var(--ink);" />
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">latency_coef
+                                        <input id="simLatencyCoef" type="number" step="0.01" value="0.30" style="padding:6px;border-radius:6px;border:1px solid var(--line);background:#0f172a;color:var(--ink);" />
+                                    </label>
+                                </div>
+                                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">volatility
+                                        <input id="simVol" type="range" min="0" max="1" step="0.01" value="0.30" />
+                                        <span id="simVolVal" style="font-size:11px;color:#cbd5e1;">0.30</span>
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">drift_risk
+                                        <input id="simDrift" type="range" min="0" max="1" step="0.01" value="0.25" />
+                                        <span id="simDriftVal" style="font-size:11px;color:#cbd5e1;">0.25</span>
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">latency_risk
+                                        <input id="simLatency" type="range" min="0" max="1" step="0.01" value="0.20" />
+                                        <span id="simLatencyVal" style="font-size:11px;color:#cbd5e1;">0.20</span>
+                                    </label>
+                                    <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:4px;">source_penalty
+                                        <input id="simSource" type="range" min="0" max="1" step="0.01" value="0.10" />
+                                        <span id="simSourceVal" style="font-size:11px;color:#cbd5e1;">0.10</span>
+                                    </label>
+                                </div>
+                                <div id="riskSimOutput" style="font-size:12px;color:#cbd5e1;"></div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:0;flex:1;">
+                                <div style="display:flex;flex-direction:column;min-height:0;gap:8px;">
+                                    <div style="font-size:12px;color:#94a3b8;font-weight:700;">Explainability Tree</div>
+                                    <div id="riskExplainabilityView" class="log-viewer" style="font-size:12px;min-height:220px;"></div>
+                                </div>
+                                <div style="display:flex;flex-direction:column;min-height:0;gap:8px;">
+                                    <div style="font-size:12px;color:#94a3b8;font-weight:700;">Risk Bileşenleri Zaman-Serisi</div>
+                                    <div id="riskTimeseriesChart" style="min-height:180px;background:#0f172a;border:1px solid var(--line);border-radius:8px;padding:6px;"></div>
+                                    <div id="riskTimeseriesView" class="log-viewer" style="font-size:12px;min-height:220px;"></div>
+                                </div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <div style="font-size:12px;color:#94a3b8;font-weight:700;">Persist Explainability Snapshot (Son 10)</div>
+                                <div id="riskSnapshotsView" class="log-viewer" style="font-size:12px;max-height:220px;"></div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <div style="font-size:12px;color:#94a3b8;font-weight:700;">Karar Geçmişi Karşılaştırma</div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                    <select id="riskCmpA" style="padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);"></select>
+                                    <select id="riskCmpB" style="padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);"></select>
+                                </div>
+                                <div id="riskComparisonView" class="log-viewer" style="font-size:12px;max-height:180px;"></div>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:8px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <div style="font-size:12px;color:#94a3b8;font-weight:700;">Snapshot Mini Trend Dağılımı</div>
+                                    <div style="display:flex;gap:4px;">
+                                        <button class="btn btn-secondary" onclick="setMiniTrendTimeRange('all')" style="font-size:10px;padding:4px 8px;">Tümü</button>
+                                        <button class="btn btn-secondary" onclick="setMiniTrendTimeRange('1h')" style="font-size:10px;padding:4px 8px;">1h</button>
+                                        <button class="btn btn-secondary" onclick="setMiniTrendTimeRange('6h')" style="font-size:10px;padding:4px 8px;">6h</button>
+                                        <button class="btn btn-secondary" onclick="setMiniTrendTimeRange('24h')" style="font-size:10px;padding:4px 8px;">24h</button>
+                                    </div>
+                                </div>
+                                <div id="riskMiniTrendView" class="log-viewer" style="font-size:12px;max-height:190px;"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="riskMiniTrendModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);flex-direction:column;align-items:center;justify-content:center;z-index:999;">
+        <div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;max-width:600px;max-height:80vh;overflow:auto;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="font-size:14px;color:#94a3b8;font-weight:700;">Karar Detayı: <span id="riskMiniTrendModalTitle" style="color:#cbd5e1;">-</span></div>
+                <button class="btn btn-secondary" onclick="closeMiniTrendModal()" style="padding:4px 8px;font-size:11px;">Kapat</button>
+            </div>
+            <div id="riskMiniTrendModalList" class="log-viewer" style="font-size:12px;flex:1;min-height:200px;"></div>
         </div>
     </div>
 
@@ -959,6 +1065,9 @@
         let lastRenderedLogSet = new Set();
         const MAX_LOGS = 500;
         let recentErrorsCache = [];
+        let riskSnapshotCache = [];
+        let miniTrendTimeRange = 'all';
+        let miniTrendSelectedDecision = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -1009,10 +1118,15 @@
                 'memory': 'Ajan Hafızası',
                 'errors': 'Hata Logları',
                 'database': 'Database',
-                'analytics': 'AI Gelişimi'
+                'analytics': 'AI Gelişimi',
+                'risk': 'Risk Tanı'
             };
 
             document.getElementById('viewTitle').textContent = titles[view] || view;
+
+            if (view === 'risk') {
+                loadRiskDiagnosticsView();
+            }
         }
 
         function connectWebSocket() {
@@ -1397,7 +1511,7 @@
                     outElem.innerHTML = '<div class="log-line"><span class="log-msg">Arama için bir sorgu gir.</span></div>';
                     return;
                 }
-                const response = await fetch(`/api/memory/search?query=${encodeURIComponent(query)}&limit=15`);
+                const response = await fetch(`/api/memory/search?query=${encodeURIComponent(query)}&limit=15&mode=auto&time_weight=0.2&half_life_days=10`);
                 const data = await response.json();
                 const items = Array.isArray(data.results) ? data.results : [];
                 if (!items.length) {
@@ -1417,6 +1531,460 @@
             } catch (err) {
                 console.error('loadMemorySearch error', err);
             }
+        }
+
+        async function loadRiskDiagnosticsView() {
+            const summaryElem = document.getElementById('riskSummaryRow');
+            const explainElem = document.getElementById('riskExplainabilityView');
+            const seriesElem = document.getElementById('riskTimeseriesView');
+            const chartElem = document.getElementById('riskTimeseriesChart');
+            const snapshotsElem = document.getElementById('riskSnapshotsView');
+            if (!summaryElem || !explainElem || !seriesElem || !snapshotsElem || !chartElem) return;
+
+            const card = (label, value, color = 'var(--accent)') => `<div style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;">
+                <div style="font-size:11px;color:#94a3b8;">${label}</div>
+                <div style="font-size:18px;font-weight:700;color:${color};">${value}</div>
+            </div>`;
+
+            try {
+                const [dResp, tResp, sResp] = await Promise.all([
+                    fetch('/api/evaluator/trend-diagnostics?lines=20000'),
+                    fetch('/api/evaluator/risk-components-timeseries?lookback_hours=24&bucket_minutes=60&max_points=24'),
+                    fetch('/api/evaluator/trend-explainability-snapshots?limit=10'),
+                ]);
+                const d = await dResp.json();
+                const t = await tResp.json();
+                const s = await sResp.json();
+
+                const decision = (d.decision || {}).decision || 'hold';
+                const syncRisk = d.sync_risk || {};
+                const riskScore = syncRisk.score != null ? Number(syncRisk.score).toFixed(3) : '—';
+                const riskLevel = syncRisk.level || '—';
+                const reason = Array.isArray((d.decision || {}).reason) ? (d.decision || {}).reason.join(', ') : String((d.decision || {}).reason || '-');
+
+                summaryElem.innerHTML = [
+                    card('Karar', escapeHtml(decision), decision === 'rollback' ? '#f87171' : (decision === 'promote' ? '#22c55e' : '#f59e0b')),
+                    card('Sync Risk Skoru', escapeHtml(riskScore), '#60a5fa'),
+                    card('Sync Risk Seviye', escapeHtml(riskLevel), '#f59e0b'),
+                    card('Neden', escapeHtml(reason).slice(0, 80), '#cbd5e1'),
+                ].join('');
+
+                syncSimulatorFromDiagnostics(d);
+
+                const tree = d.explainability_tree || { nodes: [], leaves: [] };
+                const nodes = Array.isArray(tree.nodes) ? tree.nodes : [];
+                const leaves = Array.isArray(tree.leaves) ? tree.leaves : [];
+                explainElem.innerHTML = [
+                    '<div style="font-weight:700;color:#94a3b8;margin-bottom:6px;">Nodes</div>',
+                    ...nodes.map(n => `<div class="log-line"><span class="log-level-info">[${escapeHtml(String(n.id || '-'))}]</span> <span class="log-msg">${escapeHtml(JSON.stringify(n))}</span></div>`),
+                    '<div style="font-weight:700;color:#94a3b8;margin:8px 0 6px;">Leaves</div>',
+                    ...leaves.map(n => `<div class="log-line"><span class="log-level-info">[${escapeHtml(String(n.id || '-'))}]</span> <span class="log-msg">${escapeHtml(JSON.stringify(n))}</span></div>`),
+                ].join('');
+
+                const points = Array.isArray(t.points) ? t.points : [];
+                renderRiskTimeseriesChart(points);
+                if (!points.length) {
+                    seriesElem.innerHTML = '<div class="log-line"><span class="log-msg">Zaman-serisi verisi yok.</span></div>';
+                } else {
+                    seriesElem.innerHTML = points.map(p => {
+                        const ts = escapeHtml(String(p.bucket_start || '-'));
+                        const score = Number(p.risk_score || 0).toFixed(3);
+                        const comps = escapeHtml(JSON.stringify(p.components || {}));
+                        return `<div class="log-line"><span class="log-time">${ts}</span> <span class="log-level-info">[risk:${score}]</span><div class="log-msg" style="margin-top:4px;">${comps}</div></div>`;
+                    }).join('');
+                }
+
+                const items = Array.isArray(s.items) ? s.items : [];
+                riskSnapshotCache = items;
+                if (!items.length) {
+                    snapshotsElem.innerHTML = '<div class="log-line"><span class="log-msg">Persist snapshot kaydı yok.</span></div>';
+                } else {
+                    snapshotsElem.innerHTML = items.slice().reverse().map(it => {
+                        const ts = escapeHtml(String(it.ts || '-'));
+                        const dec = escapeHtml(String(it.decision || '-'));
+                        const rs = Number(((it.sync_risk || {}).score) || 0).toFixed(3);
+                        return `<div class="log-line"><span class="log-time">${ts}</span> <span class="log-level-info">[${dec}]</span> <span class="log-msg"> sync_risk=${rs}</span></div>`;
+                    }).join('');
+                }
+                renderDecisionHistoryComparison(items);
+                renderSnapshotMiniTrend(items);
+            } catch (err) {
+                console.error('loadRiskDiagnosticsView error', err);
+                summaryElem.innerHTML = card('Hata', escapeHtml(String(err.message || err)), '#f87171');
+                explainElem.innerHTML = '<div class="log-line"><span class="log-msg">Risk tanı verisi alınamadı.</span></div>';
+                chartElem.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:8px;">Grafik verisi alınamadı.</div>';
+                seriesElem.innerHTML = '<div class="log-line"><span class="log-msg">Risk zaman-serisi alınamadı.</span></div>';
+                snapshotsElem.innerHTML = '<div class="log-line"><span class="log-msg">Snapshot verisi alınamadı.</span></div>';
+                const cmp = document.getElementById('riskComparisonView');
+                if (cmp) cmp.innerHTML = '<div class="log-line"><span class="log-msg">Karşılaştırma verisi alınamadı.</span></div>';
+                const mini = document.getElementById('riskMiniTrendView');
+                if (mini) mini.innerHTML = '<div class="log-line"><span class="log-msg">Mini trend verisi alınamadı.</span></div>';
+            }
+        }
+
+        function applyRiskPreset(name) {
+            const presets = {
+                aggressive: { base: 0.18, volCoef: 0.22, driftCoef: 0.18, latencyCoef: 0.15 },
+                balanced: { base: 0.25, volCoef: 0.35, driftCoef: 0.25, latencyCoef: 0.30 },
+                protective: { base: 0.45, volCoef: 0.65, driftCoef: 0.45, latencyCoef: 0.55 },
+            };
+            const p = presets[name] || presets.balanced;
+            const set = (id, v) => {
+                const el = document.getElementById(id);
+                if (el) el.value = Number(v).toFixed(2);
+            };
+            set('simBase', p.base);
+            set('simVolCoef', p.volCoef);
+            set('simDriftCoef', p.driftCoef);
+            set('simLatencyCoef', p.latencyCoef);
+            recalcRiskSimulator();
+        }
+
+        function renderDecisionHistoryComparison(items) {
+            const selectA = document.getElementById('riskCmpA');
+            const selectB = document.getElementById('riskCmpB');
+            const out = document.getElementById('riskComparisonView');
+            if (!selectA || !selectB || !out) return;
+
+            const arr = Array.isArray(items) ? items.slice() : [];
+            if (!arr.length) {
+                selectA.innerHTML = '<option>snapshot yok</option>';
+                selectB.innerHTML = '<option>snapshot yok</option>';
+                out.innerHTML = '<div class="log-line"><span class="log-msg">Karşılaştırma için snapshot yok.</span></div>';
+                return;
+            }
+
+            const options = arr.map((it, idx) => {
+                const ts = String(it.ts || '-');
+                const d = String(it.decision || '-');
+                return `<option value="${idx}">${escapeHtml(ts)} | ${escapeHtml(d)}</option>`;
+            }).join('');
+
+            selectA.innerHTML = options;
+            selectB.innerHTML = options;
+            selectA.value = String(Math.max(0, arr.length - 1));
+            selectB.value = String(Math.max(0, arr.length - 2));
+
+            const refresh = () => {
+                const a = arr[Number(selectA.value || 0)] || arr[arr.length - 1];
+                const b = arr[Number(selectB.value || 0)] || arr[Math.max(0, arr.length - 2)] || a;
+
+                const getNum = (obj, path, dflt = 0) => {
+                    let x = obj;
+                    for (const p of path.split('.')) x = (x || {})[p];
+                    const v = Number(x);
+                    return Number.isFinite(v) ? v : dflt;
+                };
+
+                const ar = getNum(a, 'sync_risk.score', 0);
+                const br = getNum(b, 'sync_risk.score', 0);
+                const adr = getNum(a, 'risk_confidence.score', 0);
+                const bdr = getNum(b, 'risk_confidence.score', 0);
+                const deltaRisk = (ar - br).toFixed(3);
+                const deltaConf = (adr - bdr).toFixed(3);
+
+                out.innerHTML = [
+                    `<div class="log-line"><span class="log-level-info">A:</span> <span class="log-msg">${escapeHtml(String(a.ts || '-'))} | decision=${escapeHtml(String(a.decision || '-'))} | sync_risk=${ar.toFixed(3)} | conf=${adr.toFixed(3)}</span></div>`,
+                    `<div class="log-line"><span class="log-level-info">B:</span> <span class="log-msg">${escapeHtml(String(b.ts || '-'))} | decision=${escapeHtml(String(b.decision || '-'))} | sync_risk=${br.toFixed(3)} | conf=${bdr.toFixed(3)}</span></div>`,
+                    `<div class="log-line"><span class="log-level-info">Δ:</span> <span class="log-msg">sync_risk=${escapeHtml(deltaRisk)} | conf=${escapeHtml(deltaConf)}</span></div>`,
+                ].join('');
+            };
+
+            selectA.onchange = refresh;
+            selectB.onchange = refresh;
+            refresh();
+        }
+
+        function setMiniTrendTimeRange(range) {
+            miniTrendTimeRange = range;
+            renderSnapshotMiniTrend(riskSnapshotCache);
+        }
+
+        function openMiniTrendModal(decision) {
+            miniTrendSelectedDecision = decision;
+            const modal = document.getElementById('riskMiniTrendModal');
+            const title = document.getElementById('riskMiniTrendModalTitle');
+            if (modal) modal.style.display = 'flex';
+            if (title) title.textContent = escapeHtml(String(decision));
+            const arr = Array.isArray(riskSnapshotCache) ? riskSnapshotCache : [];
+            const filtered = arr.filter(it => String((it.decision || 'other')).toLowerCase() === String(decision).toLowerCase());
+            const list = document.getElementById('riskMiniTrendModalList');
+            if (!list) return;
+            if (!filtered.length) {
+                list.innerHTML = '<div class="log-line"><span class="log-msg">Bu karar türüne ait snapshot yok.</span></div>';
+                return;
+            }
+            const getNum = (obj, path, dflt = 0) => {
+                let x = obj;
+                for (const p of path.split('.')) x = (x || {})[p];
+                const v = Number(x);
+                return Number.isFinite(v) ? v : dflt;
+            };
+            list.innerHTML = filtered.map(it => {
+                const ts = escapeHtml(String(it.ts || '-'));
+                const rs = getNum(it, 'sync_risk.score', 0).toFixed(3);
+                const rc = getNum(it, 'risk_confidence.score', 0).toFixed(3);
+                return `<div class="log-line" style="border-left:3px solid ${rs > 0.6 ? '#f87171' : (rs > 0.4 ? '#f59e0b' : '#22c55e')};"><span class="log-time">${ts}</span> <span class="log-level-info">[risk=${rs}]</span> <span class="log-msg">conf=${rc}</span></div>`;
+            }).join('');
+        }
+
+        function closeMiniTrendModal() {
+            const modal = document.getElementById('riskMiniTrendModal');
+            if (modal) modal.style.display = 'none';
+            miniTrendSelectedDecision = null;
+        }
+
+        function renderSnapshotMiniTrend(items) {
+            const out = document.getElementById('riskMiniTrendView');
+            if (!out) return;
+
+            const arr = Array.isArray(items) ? items.slice() : [];
+            if (!arr.length) {
+                out.innerHTML = '<div class="log-line"><span class="log-msg">Mini trend için snapshot yok.</span></div>';
+                return;
+            }
+
+            const now = Date.now();
+            const timeRangeMs = {
+                'all': Infinity,
+                '1h': 60 * 60 * 1000,
+                '6h': 6 * 60 * 60 * 1000,
+                '24h': 24 * 60 * 60 * 1000
+            }[miniTrendTimeRange] || Infinity;
+
+            const filtered = arr.filter(it => {
+                const ts = it.ts;
+                if (!ts) return true;
+                const itemTime = new Date(String(ts)).getTime();
+                if (!Number.isFinite(itemTime)) return true;
+                return (now - itemTime) <= timeRangeMs;
+            });
+
+            if (!filtered.length) {
+                out.innerHTML = '<div class="log-line"><span class="log-msg">Seçili zaman aralığında snapshot yok.</span></div>';
+                return;
+            }
+
+            const getNum = (obj, path, dflt = 0) => {
+                let x = obj;
+                for (const p of path.split('.')) x = (x || {})[p];
+                const v = Number(x);
+                return Number.isFinite(v) ? v : dflt;
+            };
+
+            const counts = { promote: 0, hold: 0, rollback: 0, other: 0 };
+            let sumRisk = 0;
+            let sumConf = 0;
+            const risks = [];
+            const confs = [];
+
+            for (const it of filtered) {
+                const d = String(it.decision || 'other').toLowerCase();
+                if (d === 'promote' || d === 'hold' || d === 'rollback') counts[d] += 1;
+                else counts.other += 1;
+
+                const r = getNum(it, 'sync_risk.score', 0);
+                const c = getNum(it, 'risk_confidence.score', 0);
+                sumRisk += r;
+                sumConf += c;
+                risks.push(r);
+                confs.push(c);
+            }
+
+            const n = filtered.length;
+            const meanRisk = n > 0 ? (sumRisk / n).toFixed(3) : '0.000';
+            const meanConf = n > 0 ? (sumConf / n).toFixed(3) : '0.000';
+
+            const tail = Math.min(5, n);
+            const headCount = Math.min(5, Math.max(0, n - tail));
+            const avg = (xs) => xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length) : 0;
+            const recentRisk = avg(risks.slice(-tail));
+            const olderRisk = avg(risks.slice(0, headCount));
+            const recentConf = avg(confs.slice(-tail));
+            const olderConf = avg(confs.slice(0, headCount));
+            const driftRisk = (recentRisk - olderRisk).toFixed(3);
+            const driftConf = (recentConf - olderConf).toFixed(3);
+
+            const maxCount = Math.max(1, counts.promote, counts.hold, counts.rollback, counts.other);
+            const meanRiskNum = Number(meanRisk);
+            const bgColor = meanRiskNum > 0.6 ? 'rgba(248, 113, 113, 0.1)' : (meanRiskNum > 0.4 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(34, 197, 94, 0.1)');
+            
+            const bar = (label, value, color) => {
+                const w = Math.max(4, Math.round((value / maxCount) * 100));
+                return `<div style="display:flex;align-items:center;gap:8px;">
+                    <span style="width:68px;color:#94a3b8;font-size:11px;">${label}</span>
+                    <div style="flex:1;height:8px;background:${bgColor};border-radius:6px;overflow:hidden;border:1px solid ${meanRiskNum > 0.6 ? '#dc2626' : (meanRiskNum > 0.4 ? '#ea580c' : '#16a34a')};">
+                        <div style="width:${w}%;height:100%;background:${color};"></div>
+                    </div>
+                    <span style="width:24px;text-align:right;color:#cbd5e1;font-size:11px;">${value}</span>
+                </div>`;
+            };
+
+            const riskThreshold = (v) => v > 0.6 ? '#f87171' : (v > 0.4 ? '#f59e0b' : '#22c55e');
+
+            const sparkline = (series, color, width = 180, height = 36) => {
+                const vals = Array.isArray(series) ? series : [];
+                if (!vals.length) return '';
+                const minV = Math.min(...vals);
+                const maxV = Math.max(...vals);
+                const range = Math.max(1e-9, maxV - minV);
+                const pts = vals.map((v, i) => {
+                    const x = vals.length === 1 ? 0 : (i / (vals.length - 1)) * (width - 2);
+                    const y = (height - 2) - (((v - minV) / range) * (height - 6));
+                    return `${(x + 1).toFixed(1)},${(y + 1).toFixed(1)}`;
+                }).join(' ');
+                const lines = [
+                    `<rect x="0" y="0" width="${width}" height="${height}" fill="#0f172a" rx="6" ry="6"></rect>`,
+                    `<line x1="0" y1="${(height * 0.4).toFixed(2)}" x2="${width}" y2="${(height * 0.4).toFixed(2)}" stroke="#64748b" stroke-width="1" opacity="0.3"></line>`,
+                    `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"></polyline>`
+                ];
+                return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img" aria-label="sparkline">${lines.join('')}</svg>`;
+            };
+
+            out.innerHTML = [
+                `<div class="log-line"><span class="log-level-info">Dağılım:</span> <span class="log-msg">promote=${counts.promote} | hold=${counts.hold} | rollback=${counts.rollback}${counts.other ? ` | other=${counts.other}` : ''}</span></div>`,
+                `<div style="display:flex;flex-direction:column;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#0b1220;">
+                    <div style="cursor:pointer;" onclick="openMiniTrendModal('promote')">${bar('promote', counts.promote, '#22c55e')}</div>
+                    <div style="cursor:pointer;" onclick="openMiniTrendModal('hold')">${bar('hold', counts.hold, '#f59e0b')}</div>
+                    <div style="cursor:pointer;" onclick="openMiniTrendModal('rollback')">${bar('rollback', counts.rollback, '#f87171')}</div>
+                    ${counts.other ? `<div style="cursor:pointer;" onclick="openMiniTrendModal('other')">${bar('other', counts.other, '#60a5fa')}</div>` : ''}
+                </div>`,
+                `<div class="log-line"><span class="log-level-info">Ortalama:</span> <span class="log-msg">sync_risk=${meanRisk} | conf=${meanConf}</span></div>`,
+                `<div class="log-line"><span class="log-level-info">Rolling (son ${tail} - ilk ${headCount || 0}):</span> <span class="log-msg">Δrisk=${escapeHtml(driftRisk)} | Δconf=${escapeHtml(driftConf)}</span></div>`,
+                `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                        <div style="font-size:11px;color:#94a3b8;">sync_risk sparkline</div>
+                        ${sparkline(risks, '#22c55e')}
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                        <div style="font-size:11px;color:#94a3b8;">confidence sparkline</div>
+                        ${sparkline(confs, '#38bdf8')}
+                    </div>
+                </div>`,
+            ].join('');
+        }
+
+        function renderRiskTimeseriesChart(points) {
+            const chartElem = document.getElementById('riskTimeseriesChart');
+            if (!chartElem) return;
+            if (!Array.isArray(points) || !points.length) {
+                chartElem.innerHTML = '<div style="font-size:12px;color:#94a3b8;padding:8px;">Grafik için yeterli veri yok.</div>';
+                return;
+            }
+
+            const width = 560;
+            const height = 170;
+            const pad = 24;
+            const n = points.length;
+
+            const toSeries = (keyPath) => points.map((p) => {
+                const keys = keyPath.split('.');
+                let v = p;
+                for (const k of keys) v = (v || {})[k];
+                const num = Number(v || 0);
+                return Number.isFinite(num) ? num : 0;
+            });
+
+            const risk = toSeries('risk_score');
+            const latency = toSeries('components.latency');
+            const maxV = Math.max(1, ...risk, ...latency);
+
+            const poly = (arr) => arr.map((v, i) => {
+                const x = pad + ((width - (2 * pad)) * (n === 1 ? 0 : i / (n - 1)));
+                const y = (height - pad) - ((height - (2 * pad)) * (v / maxV));
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+            }).join(' ');
+
+            chartElem.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="170" role="img" aria-label="Risk zaman serisi">
+                <rect x="0" y="0" width="${width}" height="${height}" fill="#0f172a" />
+                <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#334155" stroke-width="1" />
+                <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#334155" stroke-width="1" />
+                <polyline points="${poly(risk)}" fill="none" stroke="#22c55e" stroke-width="2" />
+                <polyline points="${poly(latency)}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4 3" />
+                <text x="${pad}" y="14" fill="#22c55e" font-size="11">risk_score</text>
+                <text x="${pad + 96}" y="14" fill="#f59e0b" font-size="11">latency</text>
+            </svg>`;
+        }
+
+        function _simNum(id, fallback = 0) {
+            const el = document.getElementById(id);
+            if (!el) return fallback;
+            const v = Number(el.value);
+            return Number.isFinite(v) ? v : fallback;
+        }
+
+        function syncSimulatorFromDiagnostics(diagnostics) {
+            const trend = ((diagnostics || {}).calendar_sync || {}).trend_summary || {};
+            const latency = (trend.latency_regime || {});
+            const rc = (trend.risk_confidence || {}).components || {};
+
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && val != null && Number.isFinite(Number(val))) el.value = Number(val).toFixed(2);
+            };
+            const setRange = (id, val) => {
+                const el = document.getElementById(id);
+                if (el && val != null && Number.isFinite(Number(val))) el.value = Math.max(0, Math.min(1, Number(val))).toFixed(2);
+            };
+
+            setVal('simDelta', trend.delta_1h_vs_24h);
+            setVal('simBase', 0.25);
+            setVal('simVolCoef', 0.35);
+            setVal('simDriftCoef', 0.25);
+            setVal('simLatencyCoef', 0.30);
+            setRange('simVol', rc.volatility);
+            setRange('simDrift', rc.drift);
+            setRange('simLatency', latency.risk);
+            setRange('simSource', trend.source_adaptive_penalty);
+
+            recalcRiskSimulator();
+        }
+
+        function recalcRiskSimulator() {
+            const delta = _simNum('simDelta', -0.25);
+            const base = _simNum('simBase', 0.25);
+            const volCoef = _simNum('simVolCoef', 0.35);
+            const driftCoef = _simNum('simDriftCoef', 0.25);
+            const latencyCoef = _simNum('simLatencyCoef', 0.30);
+            const vol = _simNum('simVol', 0.3);
+            const drift = _simNum('simDrift', 0.25);
+            const latency = _simNum('simLatency', 0.2);
+            const source = _simNum('simSource', 0.1);
+
+            const threshold = -(
+                base
+                + (volCoef * Math.max(0, Math.min(1, vol)))
+                + source
+                + (driftCoef * Math.max(0, Math.min(1, drift)))
+                + (latencyCoef * Math.max(0, Math.min(1, latency)))
+            );
+            const anomaly = delta <= threshold;
+            const out = document.getElementById('riskSimOutput');
+            if (out) {
+                const color = anomaly ? '#f87171' : '#22c55e';
+                out.innerHTML = `threshold=${threshold.toFixed(4)} | delta=${delta.toFixed(4)} | <span style="color:${color};font-weight:700;">${anomaly ? 'ANOMALY' : 'STABLE'}</span>`;
+            }
+
+            const mapLabel = (id, val) => {
+                const e = document.getElementById(id);
+                if (e) e.textContent = Number(val).toFixed(2);
+            };
+            mapLabel('simVolVal', vol);
+            mapLabel('simDriftVal', drift);
+            mapLabel('simLatencyVal', latency);
+            mapLabel('simSourceVal', source);
+        }
+
+        function initRiskSimulator() {
+            const ids = ['simDelta', 'simBase', 'simVolCoef', 'simDriftCoef', 'simLatencyCoef', 'simVol', 'simDrift', 'simLatency', 'simSource'];
+            ids.forEach((id) => {
+                const el = document.getElementById(id);
+                if (el && !el.dataset.bound) {
+                    el.addEventListener('input', recalcRiskSimulator);
+                    el.dataset.bound = '1';
+                }
+            });
+            recalcRiskSimulator();
         }
 
         function openErrorPanel() {
@@ -1594,10 +2162,17 @@
 
         // Load agent list on init
         loadAgentList();
+        initRiskSimulator();
         setInterval(loadAgentList, 5000);
 
         // Periodically refresh analytics
         setInterval(loadInitialData, 5000);
+        setInterval(() => {
+            const panel = document.querySelector('.view-panel[data-view="risk"]');
+            if (panel && panel.classList.contains('active')) {
+                loadRiskDiagnosticsView();
+            }
+        }, 8000);
 
         function selectAgentByName(agentName) {
             switchView('agents');

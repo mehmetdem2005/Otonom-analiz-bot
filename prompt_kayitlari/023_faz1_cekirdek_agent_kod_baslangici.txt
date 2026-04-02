@@ -1,0 +1,20 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"ne gerekiyorsa basla"
+
+Yapilanlar (FAZ-1 baslangic kodu):
+- action_schema.py eklendi (ActionEnvelope + ToolResult)
+- tool_registry.py eklendi (ToolDefinition + ToolRegistry)
+- action_executor.py eklendi (timeout/retry)
+- trace_store.py eklendi (JSONL trace)
+- agent_core.py eklendi (state machine + ReAct dongusu)
+- tests/test_react_loop.py eklendi
+- tests/__init__.py eklendi
+
+Dogrulama:
+- Unit test komutu calistirildi
+- Sonuc: 3 test gecti (OK)
+
+Plan guncelleme:
+- plan_ve_durum_listesi.txt ADIM-1 maddeleri tamamlandi olarak guncellendi.
+- DEV_PLAN_MASTER_/01_CORE_AGENT/STATUS.txt olusturuldu.

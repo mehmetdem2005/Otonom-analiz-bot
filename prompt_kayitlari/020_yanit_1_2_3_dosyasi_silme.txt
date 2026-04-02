@@ -1,0 +1,6 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"yanit 1 2 3 dosyasini sil"
+
+Yapilan:
+- DEV_PLAN_MASTER_/yanit_1_2_3_metin.txt dosyasi silindi.

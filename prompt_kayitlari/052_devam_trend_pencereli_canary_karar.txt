@@ -1,0 +1,22 @@
+KULLANICI ISTEGI:
+- "devam"
+
+YAPILANLAR (BU TUR):
+1) Trend pencereli evaluator katmani eklendi:
+   - quality_evaluator.py
+   - trend_window_summary(windows=1h/24h)
+   - trend_canary_decision()
+2) Trend tabanli API endpointleri eklendi:
+   - GET /api/evaluator/trend-summary
+   - GET /api/evaluator/trend-canary-decision
+3) AgentCore trend entegrasyonu eklendi:
+   - AGENT_CANARY_TREND_WINDOWS=1 ise trend karar modu kullanilir
+4) Mevcut canary endpointi ve adaptif altyapi korunarak genisletme yapildi
+5) Test kapsami genisletildi:
+   - test_trend_window_summary_contains_1h_and_24h
+   - test_trend_canary_decision_detects_short_window_drop
+   - test_runtime_canary_policy_uses_trend_mode
+
+DOGRULAMA:
+- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+- Sonuc: 60/60 PASS

@@ -1,0 +1,19 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"ne gerekiyorsa yap hep"
+
+Yapilanlar (Faz-1 entegrasyon):
+- Ajan cekirdegi mevcut ajan akimina feature-flag ile baglandi:
+  - AGENT_REACT_CORE_ENABLED=1
+- ReAct arac seti eklendi: react_tools.py
+  - web_ara
+  - sayfa_oku
+  - dosya_oku
+  - dosya_yaz
+  - kod_calistir
+- web_arayuzu.py icine yeni endpoint eklendi:
+  - /api/traces/recent
+- public/dashboard.html icine yeni gorunum eklendi:
+  - Ajan Trace
+- Unit testler tekrar calistirildi: 3/3 PASS
+- Backend ReAct flag ile yeniden baslatildi, dashboard 200 ve traces endpoint cevap veriyor.

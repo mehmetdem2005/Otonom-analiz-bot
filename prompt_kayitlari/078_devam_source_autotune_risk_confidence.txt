@@ -1,0 +1,34 @@
+Kullanici istegi: "devam"
+
+Yapilanlar (EK GUNCELLEME-54):
+- quality_evaluator.py icinde source_type bazli katsayilar icin history tabanli self-tuning eklendi.
+- Yeni env ayarlari:
+  - AGENT_CANARY_SYNC_SOURCE_AUTOTUNE (0/1)
+  - AGENT_CANARY_SYNC_SOURCE_AUTOTUNE_STRENGTH (0..1)
+- Ogrenilen agirliklar trend hesaplarinda efektif agirlik olarak kullanilir:
+  - effective_weight = env_weight * learned_multiplier (clamp)
+- trend_summary.source_weighting metadata genisletildi:
+  - autotune_enabled
+  - autotune_strength
+  - learned (source_type -> multiplier)
+
+- Birlesik risk confidence skoru eklendi:
+  - trend_summary.risk_confidence
+    - score (0..1)
+    - level (low|medium|high)
+    - attempt_factor
+    - signal_strength
+    - components {volatility, drift, latency, source}
+
+- Volatilite metrigi normalize edildi (0..1 clamp), test sozlesmesi korundu.
+
+Testler:
+- tests/test_quality_evaluator.py genisletildi:
+  - test_calendar_sync_trend_source_autotune_changes_weighted_score
+  - test_calendar_sync_trend_risk_confidence_fields_present
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 61/61 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 94/94 PASS

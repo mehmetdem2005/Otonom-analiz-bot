@@ -1,0 +1,30 @@
+Kullanici istegi: "hepsini yap ve diger adimlari"
+
+Yapilanlar (EK GUNCELLEME-42):
+- quality_evaluator.py icine sync rate-limit/cooldown ve cache-benzeri no-op stratejisi eklendi.
+- Yeni mekanizmalar:
+  - _calendar_rows_hash(...)
+  - sync sonucunda changed/source_hash/status=noop bilgisi
+  - error sonrasi cooldown: AGENT_CANARY_CALENDAR_SYNC_ERROR_COOLDOWN_SEC
+- maybe_auto_sync_calendar_overrides(...)
+  artik:
+  - fresh ise tekrar sync yapmaz
+  - son durum error ise cooldown bitmeden yeniden deneme yapmaz
+- web_arayuzu.py icine gercek scheduler entegrasyonu eklendi:
+  - startup'ta opsiyonel background task baslatilir
+  - shutdown'ta gorev iptal edilir
+  - AGENT_CANARY_CALENDAR_SCHEDULER=1 ile etkinlesir
+  - AGENT_CANARY_CALENDAR_SCHEDULER_INTERVAL_SEC ile dongu araligi ayarlanir
+- calendar-sync-status API genisletildi:
+  - scheduler enabled/running/interval
+  - auto_sync enabled/interval/error_cooldown/merge/source
+- Yeni testler:
+  - test_calendar_sync_noop_when_merged_content_unchanged
+  - test_calendar_auto_sync_respects_error_cooldown
+- Onceki turdaki auto-sync telemetry testleri ile birlikte tum davranis dogrulandi.
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 46/46 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 79/79 PASS

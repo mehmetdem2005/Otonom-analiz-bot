@@ -1,0 +1,22 @@
+KULLANICI ISTEGI:
+- "devam"
+
+YAPILANLAR (BU TUR):
+1) Trend canary kararina EWMA yumusatma eklendi:
+   - quality_evaluator.py
+   - trend_canary_decision(..., use_ewma, ewma_alpha)
+   - short-window skor EWMA ile long-window skora karsi yumusatiliyor
+2) EWMA metadata ciktisi eklendi:
+   - response.ewma = {enabled, alpha}
+3) API genisletmesi:
+   - /api/evaluator/trend-canary-decision endpointine use_ewma ve ewma_alpha parametreleri eklendi
+4) AgentCore entegrasyonu:
+   - AGENT_CANARY_TREND_EWMA=1
+   - AGENT_CANARY_TREND_EWMA_ALPHA=<float>
+5) Test kapsami genisletildi:
+   - test_trend_canary_decision_ewma_metadata_and_alpha_clamp
+   - test_runtime_canary_policy_uses_trend_ewma_mode_without_provider
+
+DOGRULAMA:
+- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+- Sonuc: 62/62 PASS

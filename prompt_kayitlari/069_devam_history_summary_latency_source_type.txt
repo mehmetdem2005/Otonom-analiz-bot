@@ -1,0 +1,34 @@
+Kullanici istegi: "devam et"
+
+Yapilanlar (EK GUNCELLEME-45):
+- quality_evaluator.py telemetrisi genisletildi:
+  - source_type (json/ics/http vb.)
+  - outcome (ok/noop/noop_remote_not_modified/error)
+  - latency_ms
+- status dosyasi history entry yapisi zenginlestirildi:
+  - outcome
+  - source_type
+  - latency_ms
+  - backoff_jitter
+- get_calendar_sync_status() icine turetilmis ozet metrik eklendi:
+  - history_summary.total
+  - history_summary.status_counts
+  - history_summary.avg_latency_ms
+  - history_summary.min_latency_ms
+  - history_summary.max_latency_ms
+- sync sonucu payload alanlari guclendirildi:
+  - source_type
+  - outcome
+  - latency_ms
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - test_calendar_sync_writes_status_telemetry_file: source_type/outcome/latency dogrulamasi
+  - test_calendar_sync_remote_304_uses_conditional_headers_and_noop: source_type/outcome dogrulamasi
+  - test_calendar_sync_status_keeps_bounded_history: history_summary dogrulamasi
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 49/49 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 82/82 PASS

@@ -1,0 +1,33 @@
+Kullanici istegi: "tamam devam et ama once planin yuxde kaci bitti soyle"
+
+Plan ilerleme durumu:
+- Genel plan: %84.96 (✅ 288 / ❌ 51)
+- Guncel EK-45+ blok: %85.07 (✅ 57 / ❌ 10)
+
+Yapilanlar (EK GUNCELLEME-55):
+- quality_evaluator.py icinde source_type self-tuning recency-weighted hale getirildi.
+- Yeni env ayari:
+  - AGENT_CANARY_SYNC_SOURCE_AUTOTUNE_HALF_LIFE_HOURS
+- Ogrenme mantigi:
+  - Tarihsel success_rate + recency agirlikli success_rate birlestirilerek learned multiplier uretilir.
+
+- agent_core.py icinde runtime policy, sync trend risk_confidence ile dogrudan zenginlestirildi.
+- Yeni runtime env ayarlari:
+  - AGENT_CANARY_RUNTIME_USE_SYNC_RISK
+  - AGENT_CANARY_RUNTIME_SYNC_RISK_MEDIUM
+  - AGENT_CANARY_RUNTIME_SYNC_RISK_HIGH
+- Davranis:
+  - Yeterince yuksek sync risk score geldiyse runtime policy promote yerine hold/rollback protect moda cekilir.
+  - runtime_policy icine sync_risk_score ve sync_risk_level alanlari yazilir.
+
+Testler:
+- tests/test_quality_evaluator.py:
+  - test_calendar_sync_trend_source_autotune_respects_recency
+- tests/test_react_loop.py:
+  - test_runtime_canary_policy_sync_risk_overrides_promote
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 63/63 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 96/96 PASS

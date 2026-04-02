@@ -1,0 +1,16 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- AgentCore guclendirildi:
+  - test basarisiz oldugunda retest otomatik append edilir
+  - test fail detay ozeti (stderr/stdout) LLM sistem mesaji olarak verilir
+- Yeni unit test eklendi:
+  - test_failed_test_auto_appends_retest
+- ReAct test seti sonucu: 12/12 PASS
+- /api/traces/summary endpointi zenginlestirildi:
+  - lastError
+  - lastDeniedReason
+- Dashboard trace summary kutularina Son Hata ve Son Deny alanlari eklendi.
+- Backend AGENT_REACT_CORE_ENABLED=1 ile yeniden baslatildi ve endpoint dogrulandi.

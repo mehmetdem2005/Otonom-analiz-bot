@@ -1,0 +1,18 @@
+[KULLANICI PROMPT OZETI]
+- "devam" akisi kapsaminda kalan son risk panel iyilestirmelerini otonom tamamla.
+- Risk Tanı paneline simulator presetleri (agresif/dengeci/korumaci) ekle.
+- Persist edilen karar snapshotlari icin karar-gecmisi karsilastirma alani ekle.
+- Degisikliklerden sonra regresyon testini kos ve plan dosyasini guncelle.
+
+[YAPILANLAR]
+- public/dashboard.html
+  - Preset butonlari eklendi (Agresif / Dengeci / Korumaci)
+  - applyRiskPreset(...) fonksiyonu eklendi
+  - Snapshot A/B secimiyle karar-gecmisi karsilastirma paneli eklendi
+  - renderDecisionHistoryComparison(...) ile delta (sync_risk, confidence) gosterimi eklendi
+- plan_ve_durum_listesi.txt
+  - EK GUNCELLEME-60 eklendi
+
+[TEST]
+- python -m unittest -q
+- Sonuc: 101/101 PASS

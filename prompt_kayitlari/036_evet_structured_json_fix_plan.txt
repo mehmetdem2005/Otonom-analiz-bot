@@ -1,0 +1,16 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"evet"
+
+Yapilanlar:
+- AgentCore plan katmani JSON yapisina tasindi:
+  - _build_structured_fix_plan eklendi
+  - strategy/scope/targets/steps alanlari ile deterministic plan uretimi
+  - test gate ve auto rollback guidance asamalarinda PlanJSON history'ye enjekte ediliyor
+  - trace eventlerine plan_json eklendi
+- Testler:
+  - test_build_structured_fix_plan_schema eklendi
+  - test_auto_rollback_applied_when_inline_narrow_test_fails icine PlanJSON kontrolu eklendi
+- Dogrulama:
+  - /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest discover -s /workspaces/Otonom-analiz-bot/tests -t /workspaces/Otonom-analiz-bot -p 'test_react_*.py' -v
+  - Sonuc: 21/21 PASS

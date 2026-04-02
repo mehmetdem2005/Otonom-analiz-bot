@@ -1,0 +1,7 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"dev plan master txt dosyasini dev plan master klasorune koy tasi"
+
+Yapilan:
+- dev_plan/DEV_PLAN_MASTER.txt dosyasi DEV_PLAN_MASTER_/DEV_PLAN_MASTER.txt konumuna tasindi.
+- Dogrulama: dev_plan klasoru bos, dosya DEV_PLAN_MASTER_ klasorunde.

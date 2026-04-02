@@ -1,0 +1,22 @@
+Tarih: 2026-04-02
+Kullanici istegi:
+"devam"
+
+Yapilanlar:
+- Semantik aramaya yeni mode eklendi: ann
+- Kalici ANN sidecar dosyasi eklendi: *.ann.jsonl
+- ANN sidecar satirlari veri ile birlikte append ediliyor
+- ANN candidate secimi guclendirildi:
+  - exact key
+  - prefix key
+  - global nearest-key fallback (hamming)
+- ANN mode robust fallback eklendi:
+  - cosine <= 0 ise token-overlap tabanli zayif relevance hesapla
+- Kritik bugfix:
+  - ann mode query embedding init hatasi duzeltildi
+- recommended_mode() buyuk hacimde ann tercih edecek sekilde guncellendi
+- benchmark_search ann modunu da olcecek sekilde guncellendi
+
+Testler:
+- tests.test_memory_store: 20/20 PASS
+- tests.test_react_tools: 13/13 PASS

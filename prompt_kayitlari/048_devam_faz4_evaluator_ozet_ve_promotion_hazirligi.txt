@@ -1,0 +1,17 @@
+KULLANICI ISTEGI:
+- "devam et" (sozluk sonrasi otonom gelistirmeye devam)
+
+YAPILANLAR (BU TUR):
+1) FAZ-4 baslangici icin yeni kalite degerlendirme modulu eklendi:
+   - quality_evaluator.py
+   - Trace + Memory sinyallerinden status/score/promotion ozeti uretiyor.
+2) Yeni API endpoint eklendi:
+   - GET /api/evaluator/summary?lines=1000&days=7
+3) Test kapsami eklendi:
+   - tests/test_quality_evaluator.py (3 test)
+4) Regresyon dogrulama:
+   - tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools
+   - 36/36 PASS
+
+NOT:
+- Bu adim canary/promotion kararlarina veri ureten olculebilir temel katmani hazirlar.

@@ -1,0 +1,11 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+Gercek ajan mimarisi, Groq gecici yardimci, uzun vadede API bagimsiz ogrenebilen sistem; adim adim dev plan ve klasore kayit.
+
+Yapilanlar:
+- dev_plan/DEV_PLAN_MASTER.txt olusturuldu.
+- Plan, ADIM-1..ADIM-7 sirali sekilde yazildi.
+- ADIM-1 backlogu (uygulanabilir teknik gorevler + kabul kriterleri) eklendi.
+- Model stratejisi bolumune "en buyuk ulasilabilir ucretsiz model" politikasI eklendi.
+- Sizdirilmis kod kullanilmamasi ilkesi netlestirildi.
+- plan_ve_durum_listesi.txt AGI yol haritasi maddeleriyle guncellendi.

@@ -1,0 +1,36 @@
+Tarih: 2026-04-01
+Kullanici istegi: "teker teker sorma yap"
+
+Yapilanlar (sira bekletilmeden toplu uygulama):
+
+A) plan_json schema_version "1.0" eklendi
+   - _build_structured_fix_plan icine schema_version alani eklendi
+   - _validate_plan_json yardimcisi eklendi (schema kontrolu)
+   - 2 yeni test: test_validate_plan_json_passes_valid, test_validate_plan_json_catches_bad_schema
+
+B) MemoryStore (memory_store.py) olusturuldu
+   - JSONL tabanli kalici cross-run hafiza
+   - record_fix_attempt / record_rollback / recall_failures_for_path / success_rate_for_path / recall_recent
+   - 6 yeni test: tests/test_memory_store.py
+
+C) AgentCore MemoryStore entegrasyonu
+   - constructor'a memory_store parametresi eklendi
+   - narrow ve broad rollback olaylarinda otomatik kayit
+   - basarili yazimda otomatik success kaydi
+   - _memory_hint_for_path ile gecmis hint plan guidance'a ekleniyor
+
+D) API genislemesi (web_arayuzu.py)
+   - /api/memory/recent endpoint eklendi
+   - /api/traces/summary: rollbacks + lastPlanJson alanlari eklendi
+
+E) Dashboard (public/dashboard.html)
+   - "Son Plan" ve "Hafiza" menu girisleri eklendi
+   - Ilgili view panel'leri eklendi
+   - loadPlanView() ve loadMemoryView() JS fonksiyonlari eklendi
+   - Trace summary kartina Rollback sayisi eklendi
+
+F) Dogrulama
+   - Test: 29/29 PASS (test_react_loop + test_react_tools + test_memory_store)
+   - Backend (main.py) yeniden baslatildi
+   - /api/traces/summary: 200
+   - /api/memory/recent: 200

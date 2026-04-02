@@ -1,0 +1,156 @@
+FAZ-1 DURUM - 2026-04-01
+
+TAMAMLANANLAR
+- agent_core.py eklendi (state machine tabanli ReAct dongusu)
+- tool_registry.py eklendi
+- action_schema.py eklendi
+- action_executor.py eklendi (timeout + retry)
+- trace_store.py eklendi (JSONL trace)
+- tests/test_react_loop.py eklendi
+
+TEST
+- Komut:
+  /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest discover -s /workspaces/Otonom-analiz-bot/tests -t /workspaces/Otonom-analiz-bot -p 'test_react_loop.py' -v
+- Sonuc: 3/3 PASS
+
+SONRAKI ADIM
+- Bu cekirdegi mevcut ajan.py akisina feature-flag ile bagla.
+- Ilk gercek arac setini (web_ara, sayfa_oku, kod_calistir, dosya_oku/yaz) registry'ye ekle.
+- Dashboard'a trace gorunurlugu endpointi ekle.
+
+2026-04-01 EK GUNCELLEME
+- ReAct cekirdegi ajan.py icine AGENT_REACT_CORE_ENABLED=1 feature-flag ile entegre edildi.
+- Yeni arac dosyasi eklendi: react_tools.py (web_ara, sayfa_oku, dosya_oku, dosya_yaz, kod_calistir).
+- Yeni API endpoint eklendi: /api/traces/recent
+- Dashboard'a yeni gorunum eklendi: Ajan Trace
+- Backend ReAct flag ile yeniden baslatildi ve endpoint dogrulandi.
+
+2026-04-01 EK GUNCELLEME-2
+- react_tools.py guvenlik sertlestirmesi eklendi:
+  - path escape engeli
+  - dosya uzantisi allowlist
+  - tehlikeli Python kod paterni engeli
+- Yeni arac eklendi: test_calistir (unittest/pytest)
+- Yeni test dosyasi eklendi: tests/test_react_tools.py
+- Test sonucu: test_react_*.py setinde 8/8 PASS
+
+2026-04-01 EK GUNCELLEME-3
+- ReAct onay politikasi ajan seviyesinde otonom moda uygun hale getirildi:
+  - varsayilan: otomatik onay
+  - AGENT_REACT_REQUIRE_MANUAL_CONFIRM=1 ile manuel moda gecis
+- AgentCore test-gate tetik anahtar kelimeleri duzeltildi (yanlis pozitif azaltildi)
+- React test seti tekrar kosuldu: 10/10 PASS
+
+2026-04-01 EK GUNCELLEME-4
+- AgentCore test-gate guclendirildi:
+  - test_calistir basarisizsa final reddedilir
+  - test gecmeden final kabul edilmez
+- Yeni unit test eklendi: failed test gate re-final flow
+- React test seti tekrar kosuldu: 11/11 PASS
+- Yeni API endpoint eklendi: /api/traces/summary
+- Dashboard traces paneline ozet metrik kutulari eklendi.
+
+2026-04-01 EK GUNCELLEME-5
+- AgentCore test-fail sonrasi retest otomatik eklenir (test_calistir aksiyonu append).
+- Test-fail durumunda LLM'e son hata ozeti (stderr/stdout) sistem mesaji olarak enjekte edilir.
+- Yeni unit test eklendi: failed test auto append retest.
+- React test seti tekrar kosuldu: 12/12 PASS.
+- Trace summary endpointi son_hata ve son_deny bilgilerini donuyor.
+
+2026-04-01 EK GUNCELLEME-6
+- Test ciktilarindan aday dosya/satir cikarma katmani eklendi (traceback parse).
+- Test fail oldugunda ve aksiyonlarda dosya_oku yoksa, aday dosya icin dosya_oku otomatik append edilir.
+- Yeni unit test eklendi: failed test appends candidate file read.
+- React test seti tekrar kosuldu: 13/13 PASS.
+
+2026-04-01 EK GUNCELLEME-7
+- test-fail hedefleme guclendirildi:
+  - ilk 3 aday dosya/satir icin otomatik dosya_oku append (line-window)
+  - dosya_oku aracina start_line/end_line destegi eklendi
+- Yeni unit testler eklendi:
+  - test_file_read_line_window
+  - candidate read testi 3 hedefi dogrulayacak sekilde guncellendi
+- React test seti tekrar kosuldu: 14/14 PASS.
+
+2026-04-01 EK GUNCELLEME-8
+- Aday hedefleme skorlamasi eklendi (hit/frekans + dosya tipi agirlik).
+- dosya_yaz araci structured cikti vermeye gecti:
+  - diff bilgisi (+/- satir)
+  - backupPath
+- Yeni rollback araci eklendi: dosya_geri_al (backup'tan geri donus).
+- AgentCore dosya_yaz sonucundan diff ozetini history'ye sistem mesaji olarak enjekte ediyor.
+- Yeni/gelistirilmis testler:
+  - test_extract_fix_candidates_ranking
+  - test_file_write_creates_backup_and_rollback
+- React test seti tekrar kosuldu: 16/16 PASS.
+
+2026-04-01 EK GUNCELLEME-9
+- AgentCore otonom write-guvenlik dongusu eklendi:
+  - dosya_yaz basariliysa otomatik dar test (narrow test) kosulur
+  - dar test fail ise backupPath kullanilarak otomatik dosya_geri_al uygulanir
+  - trace eventleri eklendi: inline_narrow_test_result, auto_rollback_applied
+  - opsiyonel broad test: AGENT_AUTOTEST_BROAD_AFTER_WRITE=1
+- Yeni unit testler eklendi:
+  - test_auto_rollback_applied_when_inline_narrow_test_fails
+  - test_no_auto_rollback_when_inline_narrow_test_passes
+- React test seti tekrar kosuldu: 18/18 PASS.
+
+2026-04-01 EK GUNCELLEME-10
+- Auto rollback sonrasi hedefli ikinci deneme guclendirildi:
+  - failed narrow test ciktilarindan kok neden ozeti otomatik cikariliyor
+  - bu ozet system history'ye enjekte edilip LLM'e yonlendirici context veriliyor
+  - aday dosya/satirlar rollback sonrasi otomatik dosya_oku ile satir-pencereli okunuyor
+  - yeni trace eventleri: auto_rollback_guidance_added, auto_rollback_candidate_read
+- Test guncellemesi:
+  - test_auto_rollback_applied_when_inline_narrow_test_fails genisletildi (guidance + read dogrulama)
+- React test seti tekrar kosuldu: 18/18 PASS.
+
+2026-04-01 EK GUNCELLEME-11
+- Broad test rollback politikasi eklendi:
+  - AGENT_AUTOTEST_BROAD_AFTER_WRITE=1 iken broad test kosulur
+  - broad test fail olursa (default acik) AGENT_AUTOROLLBACK_ON_BROAD_FAIL=1 ile otomatik rollback uygulanir
+  - trace event eklendi: auto_rollback_applied_broad
+  - system history'ye broad-regression odakli yonlendirme mesaji eklenir
+- Yeni unit test eklendi:
+  - test_auto_rollback_on_broad_test_fail_when_enabled
+- React test seti tekrar kosuldu: 19/19 PASS.
+
+2026-04-01 EK GUNCELLEME-12
+- Deterministik "minimum maliyetli duzeltme plani" katmani eklendi:
+  - test gate final reddinde aday dosya/satirlardan otomatik plan metni uretilir
+  - auto rollback guidance mesajina ayni plan enjekte edilir
+  - trace eventlerine plan alani eklendi (test_gate_rejected_final, auto_rollback_guidance_added)
+- Yeni unit test eklendi:
+  - test_build_min_cost_fix_plan_contains_ranked_targets
+- React test seti tekrar kosuldu: 20/20 PASS.
+
+2026-04-01 EK GUNCELLEME-13
+- Duzeltme plani makinece islenebilir JSON formata tasindi:
+  - yeni helper: _build_structured_fix_plan
+  - strategy/scope/targets/steps alanlari ile deterministic plan uretimi
+  - history'ye PlanJSON: {..} satiri enjekte ediliyor
+  - trace eventlerine plan_json alani eklendi
+- Yeni/gelistirilmis testler:
+  - test_build_structured_fix_plan_schema
+  - rollback guidance testinde PlanJSON history dogrulamasi
+- React test seti tekrar kosuldu: 21/21 PASS.
+
+2026-04-01 EK GUNCELLEME-14
+- Tum adimlar sira bekletilmeden uygulanadi:
+  A) schema_version "1.0" + _validate_plan_json yardimcisi eklendi
+  B) MemoryStore (memory_store.py) olusturuldu:
+     - JSONL tabanli kalici hafiza
+     - record_fix_attempt, record_rollback, recall_failures_for_path, success_rate_for_path
+  C) AgentCore MemoryStore ile entegre edildi:
+     - rollback ve basari olaylarinda otomatik kayit
+     - _memory_hint_for_path ile gecmis basarisizlik ozeti plan guidance'a injekte ediliyor
+  D) /api/memory/recent endpoint eklendi (web_arayuzu.py)
+  E) /api/traces/summary genisletildi: rollbacks + lastPlanJson alanlari
+  F) Dashboard:
+     - "Son Plan" ve "Hafiza" menuleri ve view panel'leri eklendi
+     - Trace summary karti: Rollback sayisi gosterildi
+     - loadPlanView() ve loadMemoryView() JS fonksiyonlari eklendi
+  G) Yeni test dosyasi: tests/test_memory_store.py (6 test)
+  H) test_validate_plan_json_passes_valid ve test_validate_plan_json_catches_bad_schema eklendi
+- Test sonucu: 29/29 PASS
+- Backend (main.py) ReAct modunda yeniden baslatildi: summary:200, memory:200

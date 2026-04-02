@@ -1,0 +1,657 @@
+BÖLÜM 1: ÇEKİRDEK AGENT MİMARİSİ (CORE LOOP)
+Bu modül, sistemin kalbidir. Sistemin nasıl düşüneceğini, ne zaman duracağını ve araçları nasıl tetikleyeceğini belirler.
+1. Agent Döngüsü (Event Loop & State Machine)
+Durum Makinesi (State Machine): Botun anlık durumunu takip eden bir yapı kurulacak (örneğin: IDLE, THINKING, EXECUTING_TOOL, AWAITING_USER).
+Event Loop: Kullanıcıdan veya sistemden gelen tetikleyicileri (event) sıraya sokan ve çakışmaları önleyen bir asenkron döngü yazılacak.
+2. Prompt Yönetimi
+Dinamik Sistem Promptları: Botun o anki göreve göre karakter ve kural değiştirebilmesi için sistem promptları modüler hale getirilecek.
+Context (Bağlam) Enjeksiyonu: O an çalışılan klasörün yapısı, işletim sistemi bilgisi gibi veriler prompta dinamik olarak eklenecek.
+3. Araç Çağırma (Function/Tool Calling)
+LLM'in dış dünyayla iletişim kurması için standart bir JSON formatı belirlenecek.
+Modelin dönen yanıtta tool_call parametresi varsa, olay döngüsü duraklatılıp ilgili araç (fonksiyon) çalıştırılacak.
+4. Temel Arayüz
+Sistem ilk etapta terminal üzerinden (stdin/stdout) çalışacak şekilde tasarlanacak.
+İlerisi için HTTP üzerinden veya soket bağlantısıyla farklı arayüzlere veri basabilecek soyut bir yapı (Adapter Pattern) kurulacak.
+
+
+
+BÖLÜM 4: ÖZEL MODLAR (KAIROS, BUDDY, ULTRAPLAN, UNDERCOVER)
+Sızan koddaki "gizli" yeteneklerin projeye entegrasyon planı.
+1. KAIROS Modu (Her Zaman Açık Asistan)
+Arka planda bir servis (daemon) olarak çalışacak.
+Terminalde dosya değişikliklerini veya logları pasif olarak izleyecek.
+Çok kaynak tüketmemesi için "15 saniyelik bloklama bütçesi" (Rate Limiting) uygulanacak. Kritik bir hata gördüğünde kullanıcıya proaktif bildirim atacak.
+2. BUDDY (Terminal Tamagotchi)
+Gamification modülü. Kullanıcının kod yazma alışkanlıklarına göre (hata çözme, çok dosya değiştirme vb.) istatistikler tutulacak.
+CLI'da gösterilecek ASCII animasyonlar eklenecek.
+Rastgele şans faktörüyle (RNG) nadir yaratıklar (%1 Shiny şansı vb.) kullanıcıya ödül olarak gösterilecek. Durum makinesi tabanlı bir evcil hayvan mantığı kurulacak.
+3. ULTRAPLAN (Uzun Süreli Planlama)
+Çok büyük kod refactor işlemleri için tasarlanacak.
+Ajanı 30 dakikalık bir izolasyona (konteyner/arka plan işlemi) sokan bir mod.
+İşlem bittiğinde, yapılan tüm değişiklikleri terminal yerine yerel bir web sayfasında (localhost:PORT) görselleştirip kullanıcıdan onay (Approve) isteyecek.
+4. Undercover Mode (Gizli Operasyon)
+Git Hook (pre-commit) seviyesinde çalışacak.
+Commit yapılmadan hemen önce devreye girip commit mesajlarını ve dosyalardaki yorum satırlarını tarayacak.
+"Yapay zeka tarafından yazıldı", "Asistan olarak söylüyorum" gibi kalıpları Regex veya küçük bir yerel model ile tespit edip temizleyecek. Kapatılamayan (force) bir özellik olarak tasarlanacak.
+
+
+BÖLÜM 2: ARAÇ SİSTEMİ (TOOL REGISTRY) VE GÜVENLİK
+Botun sistemde komut çalıştırabilmesi, dosya okuyup yazabilmesi için gereken araçların güvenli bir şekilde tanımlandığı modül.
+1. Tool Registry (Araç Kayıt Sistemi)
+Sisteme eklenecek her yeni yetenek (tool) bir şablona (Interface) bağlı olacak.
+Her aracın bir adı, LLM'in anlaması için net bir açıklaması ve aldığı parametrelerin doğrulama kuralları (Zod veya Joi ile) olacak.
+İzin Modeli: Tehlikeli araçlar (ör. rm -rf, git push) için kullanıcıdan onay (Y/N) isteyen bir araya girme (middleware) mekanizması yazılacak.
+2. Temel ve Özel Araçlar
+Temel: read_file, write_file, execute_shell_command, http_request.
+Özel: Sızan koddaki gibi SendUserFile (aktif dosyayı LLM'e gönderme) ve PushNotification (uzun süren işlemler bitince OS bildirimi atma).
+3. Sandbox ve İzolasyon (Güvenlik)
+Komut çalıştırma (Shell) araçları, ana sistemi bozmaması için sınırlandırılacak.
+Gerekirse Docker entegrasyonu ile kod testleri izole bir ortamda (sandbox) çalıştırılacak.
+4. Paralel Yürütme ve Hata Yönetimi
+Birbirinden bağımsız araç çağrıları varsa (ör. 3 farklı dosyayı aynı anda okuma), bekleme süresini azaltmak için Promise.all gibi yapılarla paralel çalıştırılacak.
+Bir araç hata verirse, Agent çökmemeli; hata mesajı LLM'e geri gönderilip "Bu araç hata verdi, başka bir yol dene" denilecek.
+
+
+BÖLÜM 5: DAĞITIM (DEPLOYMENT) VE GÜVENLİK STRATEJİLERİ
+Sistemin başkaları tarafından kullanılabilmesi, güncellenmesi ve dış tehditlerden korunması için gereken adımlar.
+1. Dağıtım Mimarisi (NPM vs Binary)
+Sistem npm global paketi olarak dağıtılmayacak (Dependency saldırılarına karşı).
+Kodlar derlenip (ör. Vercel pkg veya Bun ile) tek bir çalıştırılabilir dosya (binary) haline getirilecek.
+Kurulum curl -fsSL https://seninsiten.com/install.sh | bash mantığıyla yapılacak.
+2. Kaynak Kod Koruması (Source Map)
+Build alınırken source map'ler kesinlikle dışarıya verilmeyecek (Sızıntıların önüne geçmek için).
+Hassas config anahtarları, araç isimleri (özellikle BUDDY karakterleri) kod içinde Base64 veya şifrelenmiş stringler olarak gömülecek.
+3. Güncelleme Mekanizması
+Binary her çalıştığında arka planda sunucudan versiyon kontrolü yapacak.
+Yeni versiyon varsa, mevcut çalışmayı bölmeden dosyayı indirecek ve bir sonraki çalıştırmada (veya yeniden başlatmada) kendini güncelleyecek.
+4. Güvenlik ve Alınan Dersler
+Dışarıdan paket (dependency) eklerken çok katı olunacak. Axios gibi sık kullanılan ama hedef olan paketlerin versiyonları .lock dosyalarında sabitlenecek (pinning).
+Kod içinde eval(), exec() gibi fonksiyonlar sadece çok sıkı kontrolden geçmiş ve parse edilmiş JSON verileriyle çalışacak. Aksi takdirde Remote Access Trojan (RAT) riskine kapı aralanır.
+
+
+
+
+
+BÖLÜM 3: BELLEK, BAĞLAM VE RÜYA (DREAM) SİSTEMİ
+Botun unutkan olmaması ve uzun vadeli projelerde bağlamı kaybetmemesi için gereken hafıza mimarisi.
+1. Kısa Süreli Bellek (Conversation History)
+Aktif terminal oturumundaki son N mesaj (veya son X token) RAM üzerinde tutulacak.
+Token limiti aşılmaya başlandığında, eski mesajlar otomatik olarak özetlenip (sliding window) birleştirilecek.
+2. Uzun Süreli Bellek (RAG & Vektör DB)
+Geçmiş oturumlardaki önemli kararlar, proje kod standartları veya kullanıcının tercihleri yerel bir veritabanına (SQLite veya ChromaDB) kaydedilecek.
+Agent bir soruya cevap vermeden önce bu veritabanında semantik arama yapıp (RAG) eski bilgileri hatırlayacak.
+3. Oturum Yönetimi (Session Persistence)
+Terminal kapandığında bile o anki durum (state) diskte bir JSON dosyasına yazılacak. Yeniden açıldığında bot kaldığı yerden devam edebilecek.
+4. Rüya (Dream) Sistemi - Arka Plan Konsolidasyonu
+Amaç: Bot boşta kaldığında geçmiş logları okuyup kendi belleğini temizlemesi.
+İşlem: Çelişen bilgileri bulup güncel olanla değiştirme ve gereksiz logları silme.
+Tetikleyici (Trigger):
+Son rüyadan bu yana 24 saat geçmiş olmalı.
+Son rüyadan bu yana en az 5 yeni sohbet oturumu açılmış olmalı.
+Kilit (Lock) dosyası kontrol edilerek, arka planda aynı anda birden fazla rüya işlemi çalışması engellenecek.
+
+
+BÖLÜM 2: ARAÇ SİSTEMİ (TOOL REGISTRY) VE GÜVENLİK
+Botun sistemde komut çalıştırabilmesi, dosya okuyup yazabilmesi için gereken araçların güvenli bir şekilde tanımlandığı modül.
+1. Tool Registry (Araç Kayıt Sistemi)
+Sisteme eklenecek her yeni yetenek (tool) bir şablona (Interface) bağlı olacak.
+Her aracın bir adı, LLM'in anlaması için net bir açıklaması ve aldığı parametrelerin doğrulama kuralları (Zod veya Joi ile) olacak.
+İzin Modeli: Tehlikeli araçlar (ör. rm -rf, git push) için kullanıcıdan onay (Y/N) isteyen bir araya girme (middleware) mekanizması yazılacak.
+2. Temel ve Özel Araçlar
+Temel: read_file, write_file, execute_shell_command, http_request.
+Özel: Sızan koddaki gibi SendUserFile (aktif dosyayı LLM'e gönderme) ve PushNotification (uzun süren işlemler bitince OS bildirimi atma).
+3. Sandbox ve İzolasyon (Güvenlik)
+Komut çalıştırma (Shell) araçları, ana sistemi bozmaması için sınırlandırılacak.
+Gerekirse Docker entegrasyonu ile kod testleri izole bir ortamda (sandbox) çalıştırılacak.
+4. Paralel Yürütme ve Hata Yönetimi
+Birbirinden bağımsız araç çağrıları varsa (ör. 3 farklı dosyayı aynı anda okuma), bekleme süresini azaltmak için Promise.all gibi yapılarla paralel çalıştırılacak.
+Bir araç hata verirse, Agent çökmemeli; hata mesajı LLM'e geri gönderilip "Bu araç hata verdi, başka bir yol dene" denilecek.
+
+
+BÖLÜM 2: ARAÇ SİSTEMİ (TOOL REGISTRY) VE GÜVENLİK
+Botun sadece konuşmakla kalmayıp sistemde aksiyon alabilmesi için sağlam ve güvenli bir "Araç Sistemi"ne ihtiyacı var. Bu bölümde, Claude Code'un sızan mimarisinden ilham alarak araçların nasıl tanımlanacağını, tehlikeli komutların nasıl engelleneceğini ve özel araçları (SendUserFile vb.) nasıl yazacağımızı kodluyoruz.
+1. Gelişmiş Tool Registry (Araç Kaydı) ve Şemalar
+Her aracın LLM (Yapay Zeka) tarafından tam anlaşılabilmesi için JSON Schema formatında tanımlanması gerekir.
+// tool.ts
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
+
+export interface ToolDefinition<T = any> {
+      name: string;
+        description: string;
+          schema: z.ZodType<T>; // Zod ile parametre doğrulama
+            requiresConfirmation: boolean; // Kullanıcı onayı şart mı?
+              execute: (args: T) => Promise<string>;
+}
+
+export class ToolRegistry {
+      private tools = new Map<string, ToolDefinition>();
+
+        register(tool: ToolDefinition) {
+                this.tools.set(tool.name, tool);
+        }
+
+          // LLM'e göndermek için JSON Schema formatına çevir
+            getLLMDefinitions() {
+                    return Array.from(this.tools.values()).map(t => ({
+                              type: 'function',
+                                    function: {
+                                                name: t.name,
+                                                        description: t.description,
+                                                                parameters: zodToJsonSchema(t.schema)
+                                    }
+                    }));
+            }
+}
+
+
+2. Güvenlik Katmanı: Tehlikeli Komutları Filtreleme
+Eğer bota execute_shell_command yetkisi verirsek, yanlışlıkla veya halüsinasyon görerek rm -rf / çalıştırabilir. Bunu önlemek için araya bir güvenlik katmanı (Middleware) atıyoruz.
+// security.ts
+const DANGEROUS_COMMANDS = ['rm -rf', 'mkfs', 'dd', 'sudo', 'chmod 777'];
+
+export function isCommandDangerous(cmd: string): boolean {
+      return DANGEROUS_COMMANDS.some(dangerous => cmd.includes(dangerous));
+}
+
+// Güvenli Shell Çalıştırma Aracı
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
+
+export const executeShellTool: ToolDefinition = {
+      name: 'execute_shell',
+        description: 'Terminal komutları çalıştırır.',
+          schema: z.object({
+                command: z.string().describe('Çalıştırılacak bash/shell komutu')
+          }),
+            requiresConfirmation: true, // Her zaman onay iste!
+              
+                execute: async ({ command }) => {
+                        if (isCommandDangerous(command)) {
+                                  throw new Error(`GÜVENLİK İHLALİ: '${command}' tehlikeli bir komuttur ve çalıştırılması reddedildi.`);
+                        }
+                            
+                                try {
+                                          // Zaman aşımı (timeout) ekleyerek sonsuz döngüleri engelliyoruz
+                                                const { stdout, stderr } = await execAsync(command, { timeout: 10000 });
+                                                      return stdout || stderr;
+                                } catch (error) {
+                                          return `Hata oluştu: ${error.message}`;
+                                }
+                }
+};
+
+
+3. Sızan Özel Araçlar: SendUserFile ve PushNotification
+KAIROS (Arka plan asistanı) modunun düzgün çalışması için sızdırılan kodda geçen özel araçların benzerlerini yazıyoruz.
+A. SendUserFile (Aktif Dosyayı Okuma)
+Botun kullanıcının o an üzerinde çalıştığı dosyayı gizlice/proaktif olarak okuyup bağlam (context) almasını sağlar.
+// tools/sendUserFile.ts
+import * as fs from 'fs/promises';
+
+export const sendUserFileTool: ToolDefinition = {
+      name: 'send_user_file',
+        description: 'Kullanıcının aktif dizininden bir dosyayı okur ve belleğe alır.',
+          schema: z.object({
+                filePath: z.string()
+          }),
+            requiresConfirmation: false, // Okuma işlemi genelde risksizdir
+              execute: async ({ filePath }) => {
+                    try {
+                              const content = await fs.readFile(filePath, 'utf-8');
+                                    return `[DOSYA İÇERİĞİ: ${filePath}]\n${content}`;
+                    } catch (error) {
+                              return `Dosya okunamadı: ${error.message}`;
+                    }
+              }
+};
+
+
+B. PushNotification (İşletim Sistemi Bildirimi)
+Uzun süren bir derleme veya ULTRAPLAN işlemi bittiğinde botun kullanıcıya native bildirim atmasını sağlar. (node-notifier kütüphanesi kullanılır).
+// tools/pushNotification.ts
+import notifier from 'node-notifier';
+
+export const pushNotificationTool: ToolDefinition = {
+      name: 'push_notification',
+        description: 'İşletim sistemine (macOS/Windows) bildirim gönderir.',
+          schema: z.object({
+                title: z.string(),
+                    message: z.string()
+          }),
+            requiresConfirmation: false,
+              execute: async ({ title, message }) => {
+                    notifier.notify({
+                              title: title,
+                                    message: message,
+                                          sound: true,
+                                                wait: false
+                    });
+                        return "Bildirim başarıyla gönderildi.";
+              }
+};
+
+
+4. Paralel Çalıştırma ve Hata Yönetimi Katmanı (Agent Core'a Entegre)
+Bot bazen tek seferde 3 farklı dosya okumak isteyebilir. Bunları sırayla okumak yerine paralel çalıştırarak zaman kazanmalıyız. (Bölüm 1'deki executeTools fonksiyonunun gelişmiş hali).
+// Agent Core içindeki executeTools metodunun revizesi
+private async executeTools() {
+      const pendingCalls = this.state.pendingToolCalls;
+        
+          // Tüm araçları aynı anda (paralel) başlat
+            const executionPromises = pendingCalls.map(async (call) => {
+                    const tool = this.toolRegistry.getTool(call.name);
+                        
+                            // Onay gerektiren araçları kontrol et (Bölüm 1'deki mantık)
+                                if (tool.requiresConfirmation && !this.state.userConfirmationRequired) {
+                                          // ... onay bekleme mantığı ...
+                                                return; 
+                                }
+
+                                    try {
+                                              console.log(`⚙️ Çalıştırılıyor: ${call.name}`);
+                                                    const output = await tool.execute(call.args);
+                                                          return { toolCallId: call.id, output: output };
+                                    } catch (error) {
+                                              // Bir tool patlarsa sistemi çökertme, hatayı LLM'e ver ki kendi çözsün
+                                                    return { toolCallId: call.id, output: `SİSTEM HATASI: ${error.message}. Lütfen alternatif bir yol dene.` };
+                                    }
+            });
+
+              // Tüm işlemlerin bitmesini bekle
+                const results = await Promise.all(executionPromises);
+
+                  // Sonuçları geçmişe ekle
+                    for (const result of results) {
+                            if (result) {
+                                      this.state.conversationHistory.push({
+                                                role: 'tool',
+                                                        tool_call_id: result.toolCallId,
+                                                                content: result.output
+                                      });
+                            }
+                    }
+
+                      this.state.pendingToolCalls = [];
+                        this.state.state = 'THINKING'; // Sonuçları aldı, tekrar düşünmeye geçiyor
+}
+
+
+Özet
+Bu yapı sayesinde:
+Agent ne yapabileceğini Zod şemaları ile net bir şekilde anlıyor.
+Sistemi formatlamak gibi tehlikeli komutlar filtreleniyor.
+Arka plan modları için gerekli OS entegrasyonları (Bildirim vs.) sağlandı.
+Tool çökmeleri uygulamanın çökmesine değil, LLM'in durumu anlayıp yeni yol çizmesine sebep oluyor.
+
+
+
+
+Gelişmiş AI Asistan - Mimari ve Yapılacaklar Listesi
+Bu doküman, terminal tabanlı, otonom çalışabilen ve gelişmiş hafıza yönetimine sahip bir yapay zeka asistanı geliştirmek için gereken temel adımları içerir.
+1. Arka Plan Asistanı (Daemon Modu)
+Ajanın terminal kapalıyken bile projeyi izlemesi ve proaktif çalışabilmesi için gereken altyapı.
+Servis Altyapısı: İşletim sisteminin arka planında çalışacak bir daemon (servis) yazılacak.
+Kaynak Yönetimi: Sistemi yormaması için "15 saniyelik işlem bütçesi" gibi rate-limit mekanizmaları kurulacak.
+Özel Araçlar (Tools): * SendUserFile: Arka plandayken aktif proje dosyalarındaki değişiklikleri okuyup modele bağlam (context) sağlayacak.
+PushNotification: Kritik bir durum olduğunda veya işlem bittiğinde işletim sistemine native bildirim atacak.
+2. Terminal İçi Oyunlaştırma (Gamification)
+Kullanıcı etkileşimini artırmak için CLI içine gömülü sanal asistan/evcil hayvan sistemi.
+İstatistik Takibi: Kullanıcının çalışma tarzına göre (Hata ayıklama, sabır, vs.) değişen istatistik metrikleri eklenecek.
+Rastgelelik (RNG): Farklı nadirlik seviyelerine (%60 yaygın, %1 çok nadir/parlak) sahip ASCII karakterler veya profiller oluşturulacak.
+Gizlilik: Terminal kodlarındaki bu karakter isimleri doğrudan aratılıp bulunamasın diye Base64 veya String.fromCharCode() ile koda gizlenecek.
+3. İzole Bulut Planlama (Uzun Süreli Görevler)
+Çok dosya değiştiren, karmaşık ve zaman alan görevlerin (30 dakikaya kadar) güvenli yürütülmesi.
+İzolasyon: Ağır kodlama işlemleri kullanıcının ana makinesinde değil, izole bir konteyner (Docker vb.) ortamında çalıştırılacak.
+Onay Mekanizması: Uzun süren görev tamamlandığında, değişiklikleri terminalde uzun uzun basmak yerine localhost'ta açılacak basit bir web arayüzü ile kullanıcı onayına (Approve/Reject) sunulacak.
+4. Hafıza Konsolidasyonu (Rüya Sistemi)
+Ajanın unutkanlığını gidermek ve uzun vadeli bağlam tutmasını sağlamak için arka plan optimizasyonu.
+Vektör Veritabanı: Geçmiş konuşmaların semantik olarak aranabilmesi için yerel bir veritabanı (RAG mimarisi) kurulacak.
+Çelişki Temizliği: Sistem boşta kaldığında eski logları tarayıp özetleyecek ve birbiriyle çelişen eski kararları temizleyecek bir "Rüya" algoritması yazılacak.
+Tetikleyiciler: Bu işlemin çalışması için kurallar belirlenecek:
+Son optimizasyondan bu yana belirli bir süre (ör. 24 saat) geçmiş olması.
+Belirli bir sayıda (ör. en az 5) yeni işlem/oturum yapılmış olması.
+Aynı anda iki temizlik işleminin çalışmasını engelleyecek kilit (lock) mekanizması.
+5. Git Entegrasyonu ve Görünmez Mod
+Ajanın proje repolarına katkı yaparken iz bırakmamasını sağlayan yapı.
+Git Hook Entegrasyonu: Sisteme otomatik bir pre-commit hook eklenecek.
+Filtreleme: Yapılan commit mesajlarından ve kod içi yorumlardan "Yapay zeka tarafından yazıldı" gibi otomatik bot ibarelerini silecek bir denetim mekanizması kurulacak.
+6. Güvenlik ve Model Doğrulama
+Bota işletim sistemi yetkileri verileceği için alınması gereken katı önlemler.
+Halüsinasyon Önlemi: Modellerin (özellikle yeni versiyonlarda) %30'lara varabilen yanlış bilgi üretme ihtimaline karşı kritik işlemler filtrelenecek.
+Komut Onayı: rm -rf, dosya silme veya sistem ayarı değiştirme gibi tehlikeli shell komutları çalıştırılmadan önce kesinlikle kullanıcı onayı isteyecek bir güvenlik (middleware) katmanı eklenecek.
+Güvenli Kurulum ve Dağıtım: Tedarik zinciri saldırılarına (kötü niyetli NPM paketleri vb.) karşı bağımlılıklar kilitlenecek. Proje dağıtımı standart paket yöneticileri yerine, arka plan güncellemelerini destekleyen derlenmiş bir binary ve bash scripti ile yapılacak.
+
+
+Yanıt 1 – Çekirdek Agent Mimarisi
+Bu bölümde, sızan koddan esinlenerek bir sohbet botunun/ajanın çekirdek döngüsünü, prompt yönetimini, araç çağırma temelini ve durum makinesini nasıl kurabileceğimizi adım adım inceleyeceğiz. Her şeyi TypeScript ile yazacağız.
+1. Agent Durum Makinesi (State Machine)
+Agent sürekli döngü halinde çalışır. Temel durumlar şunlardır:
+IDLE: Kullanıcıdan mesaj bekleniyor (terminal/HTTP).
+THINKING: Model çağrılıyor, yanıt veya araç talebi alınıyor.
+TOOL_CALLING: Bir veya daha fazla araç yürütülüyor.
+WAITING_CONFIRM: Kritik araçlar için kullanıcı onayı bekleniyor (opsiyonel).
+DREAMING: Arka planda çalışır. Sadece KAIROS veya özel bir modda aktif.
+Her geçiş bir olayla (event) tetiklenir.
+type AgentState = 'IDLE' | 'THINKING' | 'TOOL_CALLING' | 'WAITING_CONFIRM' | 'DREAMING';
+
+interface AgentContext {
+        state: AgentState;
+          conversationHistory: Message[];
+            pendingToolCalls: ToolCall[];
+              userConfirmationRequired?: boolean;
+}
+
+
+2. Ana Döngü (Event Loop)
+Ana döngü QueryEngine.ts içinde yer alır. Basitleştirilmiş hali:
+class AgentCore {
+        private state: AgentContext = {
+                state: 'IDLE',
+                    conversationHistory: [],
+                        pendingToolCalls: []
+        };
+
+          async run() {
+                while (true) {
+                        switch (this.state.state) {
+                                      case 'IDLE':
+                                                // Kullanıcı girdisini bekle
+                                                          const userInput = await this.waitForUserInput();
+                                                                    this.state.conversationHistory.push({ role: 'user', content: userInput });
+                                                                              this.state.state = 'THINKING';
+                                                                                        break;
+
+                                                                                                case 'THINKING':
+                                                                                                          await this.thinkAndAct();
+                                                                                                                    break;
+
+                                                                                                                            case 'TOOL_CALLING':
+                                                                                                                                      await this.executeTools();
+                                                                                                                                                break;
+
+                                                                                                                                                        case 'WAITING_CONFIRM':
+                                                                                                                                                                  await this.waitForConfirmation();
+                                                                                                                                                                            break;
+
+                                                                                                                                                                                    case 'DREAMING':
+                                                                                                                                                                                              // Arka planda çalışır, genelde ayrı bir thread/worker
+                                                                                                                                                                                                        await this.dream();
+                                                                                                                                                                                                                  break;
+                        }
+                }
+          }
+}
+
+
+3. thinkAndAct() – Model Çağrısı ve Araç Yönetimi
+Model çağrılırken sistem prompt’u, araç tanımları ve konuşma geçmişi gönderilir. Dönen yanıt iki şekilde olabilir:
+Doğrudan bir mesaj (assistant yanıtı)
+Bir veya daha fazla araç çağrısı (tool calls)
+private async thinkAndAct() {
+        const messages = this.buildMessages(); // sistem + geçmiş + araç tanımları
+          const response = await this.callLLM(messages);
+
+            if (response.toolCalls && response.toolCalls.length > 0) {
+                      // Araç çağrıları var
+                          this.state.pendingToolCalls = response.toolCalls;
+                              this.state.state = 'TOOL_CALLING';
+            } else {
+                      // Normal mesaj
+                          this.state.conversationHistory.push({
+                                    role: 'assistant',
+                                          content: response.content
+                          });
+                              this.state.state = 'IDLE';
+                                  this.renderMessage(response.content);
+            }
+}
+
+
+buildMessages() işlevi, sistem prompt’unu ve araç tanımlarını dinamik olarak ekler. Örneğin:
+private buildMessages(): any[] {
+        const systemPrompt = this.getSystemPrompt(); // mevcut moda göre
+          const tools = this.toolRegistry.getToolDefinitions(); // araçların JSON schema’ları
+
+            return [
+                      { role: 'system', content: systemPrompt },
+                          ...this.state.conversationHistory,
+                              // Modelin tool call formatına uygun ek yönlendirmeler
+                                  { role: 'system', content: `Available tools: ${JSON.stringify(tools)}` }
+            ];
+}
+
+
+4. Tool Call Yürütme (executeTools())
+Araçlar sırayla veya paralel çalıştırılabilir. Güvenlik için onay mekanizması eklenebilir.
+private async executeTools() {
+        const results: ToolResult[] = [];
+
+          for (const toolCall of this.state.pendingToolCalls) {
+                // Güvenlik kontrolü – kritik araçlar için onay iste
+                    if (this.requiresConfirmation(toolCall.name)) {
+                              this.state.state = 'WAITING_CONFIRM';
+                                    this.state.userConfirmationRequired = true;
+                                          // onay bekleme döngüsüne girilir, daha sonra tekrar buraya dönülür
+                                                return;
+                    }
+
+                        const result = await this.toolRegistry.execute(toolCall);
+                            results.push(result);
+          }
+
+            // Tüm sonuçları conversation’a ekle
+              for (const result of results) {
+                      this.state.conversationHistory.push({
+                              role: 'tool',
+                                    tool_call_id: result.toolCallId,
+                                          content: result.output
+                      });
+              }
+
+                this.state.pendingToolCalls = [];
+                  this.state.state = 'THINKING'; // sonuçları modele geri gönder
+                    // tekrar thinkAndAct() çağrılacak (döngü)
+}
+
+
+Onay bekleme durumu:
+private async waitForConfirmation() {
+        const userConfirmed = await this.promptUserConfirmation();
+          if (userConfirmed) {
+                this.state.state = 'TOOL_CALLING'; // kaldığı yerden devam
+                    this.state.userConfirmationRequired = false;
+          } else {
+                // Onay verilmezse tool call iptal edilir, yanıt üretilir
+                    this.state.conversationHistory.push({
+                              role: 'assistant',
+                                    content: 'İşlem onaylanmadı, devam edemiyorum.'
+                    });
+                        this.state.pendingToolCalls = [];
+                            this.state.state = 'IDLE';
+          }
+}
+
+
+5. Araç Kayıt Sistemi (Tool Registry)
+Basit bir registry kurulumu:
+interface ToolDefinition {
+        name: string;
+          description: string;
+            parameters: any; // JSON schema
+              execute: (args: any) => Promise<string>;
+                requiresConfirmation?: boolean;
+}
+
+class ToolRegistry {
+        private tools = new Map<string, ToolDefinition>();
+
+          register(tool: ToolDefinition) {
+                this.tools.set(tool.name, tool);
+          }
+
+            getToolDefinitions() {
+                      return Array.from(this.tools.values()).map(t => ({
+                              type: 'function',
+                                    function: {
+                                                  name: t.name,
+                                                          description: t.description,
+                                                                  parameters: t.parameters
+                                    }
+                      }));
+            }
+
+              async execute(call: ToolCall): Promise<ToolResult> {
+                      const tool = this.tools.get(call.name);
+                          if (!tool) throw new Error(`Tool ${call.name} not found`);
+                              const output = await tool.execute(call.args);
+                                  return { toolCallId: call.id, output };
+              }
+
+                requiresConfirmation(toolName: string): boolean {
+                      return this.tools.get(toolName)?.requiresConfirmation ?? false;
+                }
+}
+
+
+6. Model API Çağrısı
+Herhangi bir model sağlayıcı (OpenAI, Anthropic vb.) entegre edilebilir. Örnek:
+private async callLLM(messages: any[]): Promise<LLMResponse> {
+        const response = await fetch('[https://api.anthropic.com/v1/messages](https://api.anthropic.com/v1/messages)', {
+                method: 'POST',
+                    headers: {
+                              'x-api-key': process.env.ANTHROPIC_API_KEY,
+                                    'anthropic-version': '2023-06-01',
+                                          'content-type': 'application/json'
+                    },
+                        body: JSON.stringify({
+                                    model: 'claude-3-5-sonnet-20241022',
+                                          max_tokens: 4096,
+                                                messages: messages,
+                                                      tools: this.toolRegistry.getToolDefinitions() // eğer tool call desteği varsa
+                        })
+        });
+          const data = await response.json();
+            // dönüşü kendi formatınıza çevirin
+              return this.parseLLMResponse(data);
+}
+
+
+7. Prompt Yönetimi ve Dinamik İçerik
+Sistem prompt’u, mevcut moda göre değişir. BUDDY vb. özellikler için dinamik eklemeler yapılır.
+private getSystemPrompt(): string {
+        let prompt = `Sen bir yazılım mühendisliği asistanısın. Kullanıcıya terminalde yardımcı oluyorsun.`;
+
+          if (this.isKairosMode) {
+                prompt += `\nKAIROS modu aktif: arka planda sürekli çalışıyor, kullanıcıya bildirim gönderebilirsin.`;
+          }
+            if (this.buddyActive) {
+                      const buddyStatus = this.buddy.getStatusAscii();
+                          prompt += `\n\nBUDDY durumu:\n${buddyStatus}`;
+            }
+              // Undercover mod gizlilik eklemeleri...
+                return prompt;
+}
+
+
+8. Kullanıcı Girdisi / Terminal Entegrasyonu
+Terminal girdisi readline veya Node.js process.stdin ile alınır.
+private waitForUserInput(): Promise<string> {
+        const rl = readline.createInterface({
+                input: process.stdin,
+                    output: process.stdout
+        });
+
+          return new Promise((resolve) => {
+                rl.question('> ', (answer) => {
+                        rl.close();
+                              resolve(answer);
+                });
+          });
+}
+
+
+9. İlk Çalıştırma ve Bağlam Yükleme
+Agent başlatıldığında önceki oturumları yükler, araçları kaydeder ve modları başlatır.
+async initialize() {
+        await this.loadSession();          // conversationHistory’yi diskten yükle
+          this.registerDefaultTools();       // dosya, shell vs.
+            if (this.config.enableBuddy) {
+                      await this.buddy.load();         // BUDDY durumunu yükle
+            }
+              // KAIROS arka plan işlemini başlat
+                if (this.config.enableKairos) {
+                      this.startKairosWorker();
+                }
+}
+
+
+10. Özet – Çekirdek Mimaride Ne İnşa Ettik?
+State machine ile ajanın yaşam döngüsü
+Model çağrısı ve araç çağrısı yönetimi
+Tool registry ile genişletilebilir araç sistemi
+Dinamik prompt oluşturma (modlara göre)
+Onay mekanizması (kritik işlemler için)
+Not: Burada verilen kod parçaları sızan kaynaklardan birebir kopya değildir; mimari anlaşılarak benzer işlevselliği sıfırdan oluşturmak için hazırlanmıştır.
+
+                }
+            }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+          })
+        })
+}
+            }
+          }
+}
+                        })
+                    }
+        })
+}
+                }
+              }
+                                    }
+                      }))
+            }
+          }
+}
+}
+                    })
+          }
+          }
+}
+                      })
+              }
+                    }
+          }
+}
+            ]
+}
+                          })
+            }
+            }
+}
+                        }
+                }
+          }
+        }
+}
+}

@@ -1,0 +1,35 @@
+Kullanici istegi: "tamam devam"
+
+Yapilanlar (EK GUNCELLEME-37):
+- quality_evaluator.py icinde takvim tabanli seasonality override destegi eklendi.
+- Yeni mantik:
+  - calendar_overrides.json dosyasi okunur
+  - current date bir ozel gunle eslesirse calendar override aktif olur
+  - ayni etiketli gecmis gunlerden saat bazli calendar_baseline uretilir
+  - matrix_blended_baseline ile calendar_baseline adaptif katsayi ile blend edilir
+  - confidence ozel gunlerde calendar_adaptive_coef ile yeniden olceklenir
+- Yeni yardimci yapilar:
+  - _load_calendar_overrides()
+  - _calendar_match_labels(...)
+- Varsayilan takvim dosyasi eklendi:
+  - calendar_overrides.json
+  - sabit tarihli resmi/ozel gunler icin recurring month_day kayitlari
+
+Seasonality metadata genisletildi:
+- calendar_override_active
+- calendar_label
+- calendar_baseline
+- calendar_adaptive_coef
+- calendar_coverage
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - metadata testine calendar alanlari eklendi
+  - fallback testine calendar_override_active=False dogrulamasi eklendi
+  - yeni test: test_seasonality_adjustment_calendar_override_applies_special_day_baseline
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 37/37 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 70/70 PASS

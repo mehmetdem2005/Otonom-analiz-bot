@@ -1,0 +1,70 @@
+DEV PLAN MASTER
+Tarih: 2026-04-01
+Durum: AKTIF
+Ana Hedef: Kod yazmada uzman, kendi kendini gelistiren, testle dogrulanan otonom AI chatbot.
+
+TEMEL PRENSIPLER
+- Illuzyon yok: tum ciktilar test, log ve metrikle dogrulanir.
+- Tam otonomi hedefi: baslat tusundan sonra rutin isler otomatik.
+- Guvenlik: kritik eylemlerde devre kesici ve geri alma mecburi.
+- Yasal kaynak: yalnizca acik kaynak ve lisans uyumlu veri.
+- Groq gecici yardimci: nihai hedef API'siz yerel birincil mod.
+
+GERCEKCI KAPSAM
+- "Tum GitHub" taramasi sinirsiz oldugu icin dogrudan uygulanmaz.
+- Uygulanacak model:
+  1. Lisans uyumlu repo havuzu
+  2. Alan filtresi (agent, codegen, testing, static analysis)
+  3. Surekli crawler + kalite puanlama
+  4. Egitim veri havuzuna sadece esik gecen orneklerin alinmasi
+
+PLAN MODULLERI
+- [00_INDEX.txt] Genel indeks ve okuma sirasi
+- [01_CORE_AGENT/PLAN.txt] ReAct agent core ve state machine
+- [02_TOOLS_SECURITY/PLAN.txt] Tool registry, sandbox, guvenlik
+- [03_MEMORY_DREAM/PLAN.txt] Kisa/uzun bellek ve dream konsolidasyon
+- [04_AUTONOMOUS_TRAINING/PLAN.txt] Otonom ogrenme, model terfi, API'den bagimsizlasma
+- [05_DEPLOY_GOVERNANCE/PLAN.txt] Gozlenebilirlik, operasyon, rollback
+- [RAW_IMPORT_NOTES.txt] Yuklenen ham notlar (arsiv)
+
+YONETIM MODELİ (0 RUTIN MUDAHALE)
+- Scheduler: gorevleri kuyruğa alir, kaynak durumuna gore calistirir.
+- Agent Runtime: planla -> araci sec -> calistir -> degerlendir -> yinele.
+- Evaluator: her turda kalite/guvenlik skoru uretir.
+- Promoter: sadece esik gecen degisiklikleri kalici hale getirir.
+- Safety Breaker: kritik riskte otomatik durdurur ve geri alir.
+
+FAZLAR
+FAZ-1: GERCEK AGENT LOOP
+- State machine + tool calling + trace log
+
+FAZ-2: GERCEK TOOLING
+- web_ara, sayfa_oku, kod_calistir, dosya_oku/yaz, test_calistir
+
+FAZ-3: GERCEK BELLEK
+- ChromaDB ile semantik hafiza + session persistence + dream
+
+FAZ-4: KENDINI IYILESTIRME
+- Critic + test gate + canary + rollback
+
+FAZ-5: API'DEN BAGIMSIZLASMA
+- 3B-7B yerel model, API fallback ikincil
+
+FAZ-6: SUREKLI EGITIM
+- log -> data builder -> trainer -> evaluator -> promotion dongusu
+
+BASARI METRIKLERI
+- Gorev basari orani
+- Tool hata orani
+- Ortalama cozum suresi
+- API bagimlilik orani
+- Yerel model benchmark skoru
+- Regression insidansi
+
+ILK UYGULAMA HEDEFI (SONRAKI ADIM)
+- FAZ-1'i kodlamak:
+  1. agent_core.py
+  2. action_schema.py
+  3. action_executor.py
+  4. trace_store.py
+  5. tests/test_react_loop.py

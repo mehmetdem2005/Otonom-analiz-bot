@@ -1,0 +1,18 @@
+Tarih: 2026-04-01
+Kullanici istegi:
+"tamam sistem durumunda 1655 hata yaziyor tiklayinca bu hatalarin ne oldugu gozukmuyor ve cozulen hatalarin mesajlari ayri bir yere alinsin 30 gun sonra silinsin"
+
+Yapilanlar:
+- Dashboard hata karti tiklanabilir yapildi; tiklayinca Hata Detaylari paneli aciliyor.
+- Yeni endpoint eklendi: /api/errors/recent (acik hata detay listesi).
+- Yeni endpoint eklendi: /api/errors/resolve (hatayi cozuldu olarak isaretleme).
+- Yeni endpoint eklendi: /api/errors/resolved (cozulen hata kayitlari).
+- Cozulen hata kayitlari log/cozulen_hatalar/cozulen_YYYYMMDD.jsonl dosyalarina yaziliyor.
+- Retention: 30 gunden eski cozulen hata dosyalari otomatik temizleniyor.
+- Dashboard errors paneline iki kolon eklendi: Acik Hatalar ve Cozulen Hatalar (30 gun).
+- Her acik hata satirina "Cozuldu Olarak Isaretle" butonu eklendi.
+
+Canli test:
+- /api/errors/recent cevap veriyor ve ERROR satirlarini detayli donuyor.
+- /api/errors/resolve ile test kaydi yazildi.
+- /api/errors/resolved endpointi test kaydini dondu.

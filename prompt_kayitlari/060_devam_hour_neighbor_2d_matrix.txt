@@ -1,0 +1,29 @@
+Kullanici istegi: "gerek yok kaldigimiz kisimdan devam"
+
+Yapilanlar (EK GUNCELLEME-36):
+- quality_evaluator.py icinde seasonality modeline saat komsulugu (h-1 / h+1) eklendi.
+- 2D weekday-hour mantigi ile current slot artik sadece ayni dow-hour ve weekday-cluster degil, komsu saatleri de dikkate aliyor.
+- Yeni hesaplar:
+  - hour_neighbor_baseline
+  - hour_neighbor_similarity
+  - hour_neighbor_adaptive_coef
+  - hour_neighbor_coverage
+  - matrix_blended_baseline
+- Nihai baseline akisi:
+  1) dow-hour + weekday cluster -> cluster_blended_baseline
+  2) cluster_blended_baseline + komsu saatler -> matrix_blended_baseline
+  3) used_baseline confidence ile fallback hour/global baseline'a blend edilir
+- Confidence olcekleme guncellendi:
+  - confidence = raw_confidence * (0.65 + 0.2*cluster_adaptive_coef + 0.15*hour_neighbor_adaptive_coef)
+
+Testler:
+- tests/test_quality_evaluator.py guncellendi:
+  - seasonality metadata testi hour-neighbor alanlarini dogrular
+  - fallback testine hour_neighbor_adaptive_coef aralik kontrolleri eklendi
+  - yeni test: test_seasonality_adjustment_hour_neighbor_similarity_affects_coef
+
+Dogrulama:
+1) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_quality_evaluator tests.test_react_loop
+   Sonuc: 36/36 PASS
+2) /workspaces/Otonom-analiz-bot/.venv/bin/python -m unittest tests.test_react_loop tests.test_quality_evaluator tests.test_memory_store tests.test_react_tools
+   Sonuc: 69/69 PASS
