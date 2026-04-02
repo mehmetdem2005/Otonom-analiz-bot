@@ -1015,7 +1015,74 @@ ADIM-2 ARAC SISTEMI VE GUVENLIK (2026-04-02 BASLANGIC)
 ✅ ToolRegistry.audit_execution() eklendi - security audit trail
 ✅ DEV_PLAN_MASTER_/02_TOOLS_SECURITY/STATUS.txt oluşturuldu
 ✅ Regresyon: 101/101 PASS
-❌ React_tools.py araçlarını registry'ye migrate et
-❌ Path/command validation runtime enforcement
-❌ Paralel executor (task queue + worker pool)
-❌ Tool error handling + LLM feedback loop
+✅ React_tools.py araçlarını registry'ye migrate et (build_default_registry zaten ToolRegistry kullanıyor)
+✅ Path/command validation runtime enforcement (action_executor.py: allowed_paths + blocked_commands kontrolleri)
+✅ Paralel executor (task queue + worker pool): run_parallel_batch + agent_core.py parallel fast-path
+✅ Tool error handling + LLM feedback loop: _build_error_guidance + tool_error_feedback trace event
+
+EK GUNCELLEME-65 (2026-04-02)
+✅ ADIM-2 tamamlandı: Araç Sistemi ve Güvenlik tam implementasyon
+✅ action_executor.py genisletildi:
+	- _check_path_arg(...): allowed_paths kontrolu (realpath tabanlı, symlink-safe)
+	- _check_blocked_commands(...): code/command/cmd arglarinda tehlikeli komut engeli
+	- run_parallel_batch(actions): asyncio.gather ile paralel calisma
+✅ agent_core.py genisletildi:
+	- _PARALLEL_SAFE_TOOLS frozenset: dosya_oku, web_ara, sayfa_oku, hafiza_oku, hafiza_ara
+	- _build_error_guidance(tool_name, error): LLM'e yapılandırılmış hata mesajı
+	- Paralel fast-path: tum eylemler parallel-safe ise asyncio.gather ile calistirilir
+	- Hata feedback logu: her basarisiz araci sonrasinda tool_error_feedback trace + system mesaji
+✅ Yeni testler eklendi:
+	- test_path_validation_blocks_outside_repo
+	- test_path_inside_repo_is_allowed
+	- test_blocked_command_rejects_dangerous_code
+	- test_parallel_batch_runs_multiple_tools_concurrently
+	- test_tool_error_injects_feedback_into_history
+	- test_parallel_safe_tools_use_parallel_path_in_agent
+✅ Regresyon dogrulamasi:
+	- tests.test_react_loop + tests.test_quality_evaluator + tests.test_memory_store + tests.test_react_tools = 107/107 PASS
+EK GUNCELLEME-66 (2026-04-02)
+✅ ADIM-3 tamamlandı: Bellek ve Dream Konsolidasyon sistemi
+✅ dream_consolidator.py oluşturuldu:
+	- DreamConsolidator sınıfı: session tracking, trigger kontrolü, lock mekanizması
+	- record_session(session_id): oturum sayacı yönetimi
+	- should_dream(min_sessions, min_hours): tetik koşulları (24h + min 5 session)
+	- consolidate(similarity_threshold): duplikat tespiti + kayıt birleştirme + önem skoru
+	- maybe_dream(force, ...): tam döngü (trigger → lock → consolidate → status güncelle)
+	- Birleştirme: (path, kind) gruplama + token benzerliği kümeleme
+	- Önem skoru: hit_count * recency_factor (half-life 30 gün)
+	- Lock file: tek eş zamanlı dream, bayat kilit otomatik temizleme
+✅ web_arayuzu.py genisletildi:
+	- GET /api/memory/dream-status
+	- POST /api/memory/dream (force, min_sessions, min_hours, similarity_threshold)
+✅ react_tools.py genisletildi:
+	- dream_consolidate araci eklendi (11 araç toplam)
+✅ Yeni testler eklendi:
+	- test_dream_merges_duplicate_records
+	- test_dream_preserves_unique_records
+	- test_dream_importance_score_calculated
+	- test_dream_session_tracking
+	- test_dream_should_not_trigger_if_too_few_sessions
+	- test_dream_should_trigger_when_conditions_met
+	- test_maybe_dream_runs_when_forced
+	- test_maybe_dream_updates_status_after_run
+	- test_dream_lock_prevents_concurrent_runs
+	- test_dream_merged_hints_combined
+	- test_dream_consolidate_tool_registered_and_runs
+✅ Regresyon dogrulamasi:
+	- tum test suitlari = 118/118 PASS
+EK GUNCELLEME-67 (2026-04-02)
+✅ ADIM-5 tamamlandı: API-bağımsız yerel birincil mod
+✅ llm_istemci.py genisletildi:
+	- Yeni env ayarlari: LOCAL_LLM_URL, LOCAL_LLM_MODEL, LOCAL_LLM_TIMEOUT
+	- _local_llm_hazir(url, timeout): Ollama sunucu health check
+	- _local_chat_raw(...): Ollama native + OpenAI-uyumlu format desteği
+	- local_istek_sayisi(): yerel model istek sayacı
+	- api_bagimlilik_orani(): yerel/(yerel+api) oran metrigi
+	- etkin_baglanti(): LLM_PROVIDER=local ve LLM_PROVIDER=auto desteği
+	- metin_uret(): local provider -> doğrudan yerel; auto -> yerel dene -> Anthropic -> Groq
+	- llm_hazir_mi(): LLM_PROVIDER=local/auto durumunda API anahtarı gerekmez
+✅ web_arayuzu.py genisletildi:
+	- GET /api/llm/status: sağlayıcı, yerel LLM sağlık, API bağımlılık oranı
+✅ Yeni test dosyasi: tests/test_llm_istemci.py (12 test)
+✅ Regresyon dogrulamasi:
+	- tum test suitlari = 130/130 PASS

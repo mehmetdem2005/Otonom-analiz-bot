@@ -499,6 +499,43 @@ async def get_trace_summary(lines: int = 500):
         return {"error": str(e)}
 
 
+@app.get("/api/llm/status")
+async def get_llm_status():
+    """LLM sağlayıcı durumu, API bağımlılık oranı ve yerel LLM sağlık kontrolü."""
+    try:
+        import llm_istemci as llm
+
+        provider_env = os.getenv("LLM_PROVIDER", "auto").strip().lower()
+        local_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")
+        local_model = os.getenv("LOCAL_LLM_MODEL", "llama3.2:3b")
+
+        local_ok = await llm._local_llm_hazir(url=local_url, timeout=2.0)
+
+        try:
+            active = llm.etkin_baglanti()
+            active_provider = active[0]
+        except Exception:
+            active_provider = "unavailable"
+
+        return {
+            "provider_env": provider_env,
+            "active_provider": active_provider,
+            "local_llm": {
+                "url": local_url,
+                "model": local_model,
+                "available": local_ok,
+            },
+            "requests": {
+                "total_api": llm.llm_istek_sayisi(),
+                "total_local": llm.local_istek_sayisi(),
+                "api_dependency_ratio": round(llm.api_bagimlilik_orani(), 4),
+            },
+            "ready": llm.llm_hazir_mi(),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/api/memory/recent")
 async def get_memory_recent(limit: int = 30):
     """Agent hafıza kayıtlarının son N satırını döndürür."""
@@ -623,6 +660,51 @@ async def get_memory_benchmark(query: str, limit: int = 10, repeats: int = 5, pa
         return ms.benchmark_search(query=query, limit=limit, repeats=repeats, path=path)
     except Exception as e:
         return {"error": str(e), "query": query, "records": 0, "index_records": 0, "modes": {}}
+
+
+@app.get("/api/memory/dream-status")
+async def get_memory_dream_status():
+    """Dream konsolidasyon durumunu döndürür (son dream, session sayısı, toplam dream)."""
+    try:
+        from memory_store import MemoryStore
+        from dream_consolidator import DreamConsolidator
+
+        ms = MemoryStore()
+        dc = DreamConsolidator(ms)
+        st = dc.get_status()
+        ok, reason = dc.should_dream()
+        return {
+            "status": st,
+            "ready_to_dream": ok,
+            "ready_reason": reason,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/memory/dream")
+async def trigger_memory_dream(
+    force: bool = False,
+    min_sessions: int = 5,
+    min_hours: float = 24.0,
+    similarity_threshold: float = 0.6,
+):
+    """Dream konsolidasyonunu tetikler. force=true ise trigger koşulları atlanır."""
+    try:
+        from memory_store import MemoryStore
+        from dream_consolidator import DreamConsolidator
+
+        ms = MemoryStore()
+        dc = DreamConsolidator(ms)
+        result = dc.maybe_dream(
+            force=force,
+            min_sessions=min_sessions,
+            min_hours=min_hours,
+            similarity_threshold=similarity_threshold,
+        )
+        return result
+    except Exception as e:
+        return {"ran": False, "reason": f"exception:{e}", "result": None}
 
 
 @app.get("/api/evaluator/summary")

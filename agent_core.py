@@ -40,6 +40,12 @@ class AgentContext:
     final_answer: str = ""
 
 
+# Tools that are safe to run in parallel (read-only, no side-effects, no post-processing needed)
+_PARALLEL_SAFE_TOOLS: frozenset[str] = frozenset(
+    {"dosya_oku", "web_ara", "sayfa_oku", "hafiza_oku", "hafiza_ara"}
+)
+
+
 class AgentCore:
     def __init__(
         self,
@@ -480,6 +486,45 @@ class AgentCore:
             return "test_*.py"
         return f"test*{stem}*.py"
 
+    @staticmethod
+    def _build_error_guidance(tool_name: str, error: str) -> str:
+        """Build structured LLM-facing guidance after a tool failure (error feedback loop)."""
+        err = str(error).lower()
+        if "timeouterror" in err or "timeout" in err:
+            return (
+                f"Araç '{tool_name}' zaman aşımına uğradı. "
+                "Daha küçük parametre veya daha basit bir istek ile tekrar deneyin."
+            )
+        if "yol erişim engeli" in err or "path dışına" in err or "izinli alan dışında" in err:
+            return (
+                f"Araç '{tool_name}' güvenlik katmanı tarafından engellendi: izin dışı yol. "
+                "Repo kök dizini içindeki göreli bir path kullanın."
+            )
+        if "engellenen komut" in err:
+            return (
+                f"Araç '{tool_name}' güvenlik politikası tarafından engellendi: tehlikeli komut. "
+                "Farklı bir yaklaşım veya daha kısıtlı bir ifade deneyin."
+            )
+        if "bulunamadı" in err or "not found" in err or "filenotfounderror" in err:
+            return (
+                f"Araç '{tool_name}': Dosya veya kaynak bulunamadı. "
+                "Doğru path veya alternatif bir kaynak deneyin."
+            )
+        if "onay politikası" in err:
+            return (
+                f"Araç '{tool_name}' onay gerektiriyor ve otomatik onaylanmadı. "
+                "Daha az riskli alternatif bir araç veya yaklaşım deneyin."
+            )
+        if "runtime policy" in err or "canary" in err:
+            return (
+                f"Araç '{tool_name}' runtime policy tarafından engellendi. "
+                "Daha düşük riskli bir araç veya işlem deneyin."
+            )
+        return (
+            f"Araç '{tool_name}' başarısız: {str(error)[:200]}. "
+            "Hatayı inceleyin ve alternatif bir strateji deneyin."
+        )
+
     async def _run_inline_test(self, pattern: str) -> dict[str, Any]:
         action = ActionEnvelope(
             name="test_calistir",
@@ -688,207 +733,154 @@ class AgentCore:
                 "count": len(actions),
             })
 
-            for action in actions:
-                tool = self.registry.get(action.name)
-                if not self._runtime_policy_allows(action):
-                    record = {
-                        "tool": action.name,
-                        "trace_id": action.trace_id,
-                        "ok": False,
-                        "output": "",
-                        "error": f"Canary runtime policy nedeniyle engellendi (mode={self.runtime_policy.get('mode')})",
-                        "attempts": 0,
-                    }
-                    await self.trace.append(
-                        {
-                            "event": "tool_denied",
-                            "iter": iteration,
-                            "policy": "canary_runtime",
-                            "policy_mode": self.runtime_policy.get("mode"),
-                            **record,
+            # ------------------------------------------------------------------
+            # Parallel fast-path: run all parallel-safe tools concurrently
+            # ------------------------------------------------------------------
+            parallel_ok = (
+                len(actions) > 1
+                and all(a.name in _PARALLEL_SAFE_TOOLS for a in actions)
+                and all(not self.registry.get(a.name).requires_confirmation for a in actions)
+            )
+
+            if parallel_ok:
+                approved_par: list = []
+                for action in actions:
+                    if not self._runtime_policy_allows(action):
+                        record = {
+                            "tool": action.name,
+                            "trace_id": action.trace_id,
+                            "ok": False,
+                            "output": "",
+                            "error": f"Canary runtime policy nedeniyle engellendi (mode={self.runtime_policy.get('mode')})",
+                            "attempts": 0,
                         }
-                    )
-                    ctx.tool_results.append(record)
-                    ctx.history.append(
-                        {
-                            "role": "tool",
-                            "name": record["tool"],
-                            "content": json.dumps(record, ensure_ascii=False),
+                        await self.trace.append({"event": "tool_denied", "iter": iteration, "policy": "canary_runtime", **record})
+                        ctx.tool_results.append(record)
+                        ctx.history.append({"role": "tool", "name": record["tool"], "content": json.dumps(record, ensure_ascii=False)})
+                    else:
+                        approved_par.append(action)
+
+                if approved_par:
+                    par_results = await self.executor.run_parallel_batch(approved_par)
+                    await self.trace.append({"event": "parallel_batch_result", "iter": iteration, "count": len(par_results)})
+                    for par_action, par_res in zip(approved_par, par_results):
+                        record = {
+                            "tool": par_res.tool_name,
+                            "trace_id": par_res.trace_id,
+                            "ok": par_res.ok,
+                            "output": par_res.output,
+                            "error": par_res.error,
+                            "attempts": par_res.attempts,
                         }
-                    )
-                    continue
+                        ctx.tool_results.append(record)
+                        ctx.history.append({"role": "tool", "name": record["tool"], "content": json.dumps(record, ensure_ascii=False)})
+                        await self.trace.append({"event": "tool_result", "iter": iteration, "parallel": True, **record})
+                        # Error feedback loop
+                        if not record.get("ok"):
+                            guidance = self._build_error_guidance(record["tool"], record.get("error", ""))
+                            ctx.history.append({"role": "system", "content": guidance})
+                            await self.trace.append({"event": "tool_error_feedback", "iter": iteration, "tool": record["tool"], "guidance": guidance})
 
-                allowed = self.confirmation_policy(action, tool)
-                if not allowed:
-                    record = {
-                        "tool": action.name,
-                        "trace_id": action.trace_id,
-                        "ok": False,
-                        "output": "",
-                        "error": "Onay politikası nedeniyle araç çağrısı engellendi",
-                        "attempts": 0,
-                    }
-                    await self.trace.append({"event": "tool_denied", "iter": iteration, **record})
-                else:
-                    res = await self.executor.run(action)
-                    record = {
-                        "tool": res.tool_name,
-                        "trace_id": res.trace_id,
-                        "ok": res.ok,
-                        "output": res.output,
-                        "error": res.error,
-                        "attempts": res.attempts,
-                    }
-                ctx.tool_results.append(record)
-                ctx.history.append({"role": "tool", "name": record["tool"], "content": json.dumps(record, ensure_ascii=False)})
-                await self.trace.append({"event": "tool_result", "iter": iteration, **record})
-
-                if record["tool"] == "dosya_yaz" and record.get("ok"):
-                    try:
-                        payload = json.loads(record.get("output", ""))
-                        diff = payload.get("diff", {})
-                        pth = payload.get("path", "?")
-                        backup = payload.get("backupPath", "")
-                        summary = (
-                            f"Dosya güncellendi: {pth}; "
-                            f"+{diff.get('addedLines', 0)} -{diff.get('removedLines', 0)} satır; "
-                            f"backup: {backup or 'yok'}"
-                        )
-                        ctx.history.append({"role": "system", "content": summary})
-
-                        # Otonom güvenlik kapısı: yazılan dosya için dar test koş, başarısızsa rollback yap.
-                        if self._objective_requires_test_gate(ctx.objective):
-                            narrow_pattern = self._infer_narrow_test_pattern(str(pth))
-                            narrow_res = await self._run_inline_test(narrow_pattern)
-                            ctx.tool_results.append(narrow_res)
-                            ctx.history.append({
-                                "role": "tool",
-                                "name": narrow_res["tool"],
-                                "content": json.dumps(narrow_res, ensure_ascii=False),
-                            })
-                            await self.trace.append({
-                                "event": "inline_narrow_test_result",
+            else:
+                # ------------------------------------------------------------------
+                # Sequential path (write tools, confirmation-required, single action)
+                # ------------------------------------------------------------------
+                for action in actions:
+                    tool = self.registry.get(action.name)
+                    if not self._runtime_policy_allows(action):
+                        record = {
+                            "tool": action.name,
+                            "trace_id": action.trace_id,
+                            "ok": False,
+                            "output": "",
+                            "error": f"Canary runtime policy nedeniyle engellendi (mode={self.runtime_policy.get('mode')})",
+                            "attempts": 0,
+                        }
+                        await self.trace.append(
+                            {
+                                "event": "tool_denied",
                                 "iter": iteration,
-                                "pattern": narrow_pattern,
-                                **narrow_res,
-                            })
+                                "policy": "canary_runtime",
+                                "policy_mode": self.runtime_policy.get("mode"),
+                                **record,
+                            }
+                        )
+                        ctx.tool_results.append(record)
+                        ctx.history.append(
+                            {
+                                "role": "tool",
+                                "name": record["tool"],
+                                "content": json.dumps(record, ensure_ascii=False),
+                            }
+                        )
+                        continue
 
-                            narrow_pass = False
-                            if narrow_res.get("ok"):
-                                rc = self._extract_test_returncode(narrow_res)
-                                narrow_pass = (rc == 0) if rc is not None else True
+                    allowed = self.confirmation_policy(action, tool)
+                    if not allowed:
+                        record = {
+                            "tool": action.name,
+                            "trace_id": action.trace_id,
+                            "ok": False,
+                            "output": "",
+                            "error": "Onay politikası nedeniyle araç çağrısı engellendi",
+                            "attempts": 0,
+                        }
+                        await self.trace.append({"event": "tool_denied", "iter": iteration, **record})
+                    else:
+                        res = await self.executor.run(action)
+                        record = {
+                            "tool": res.tool_name,
+                            "trace_id": res.trace_id,
+                            "ok": res.ok,
+                            "output": res.output,
+                            "error": res.error,
+                            "attempts": res.attempts,
+                        }
+                    ctx.tool_results.append(record)
+                    ctx.history.append({"role": "tool", "name": record["tool"], "content": json.dumps(record, ensure_ascii=False)})
+                    await self.trace.append({"event": "tool_result", "iter": iteration, **record})
+                    # Error feedback loop
+                    if not record.get("ok"):
+                        guidance = self._build_error_guidance(record["tool"], record.get("error", ""))
+                        ctx.history.append({"role": "system", "content": guidance})
+                        await self.trace.append({"event": "tool_error_feedback", "iter": iteration, "tool": record["tool"], "guidance": guidance})
 
-                            if (not narrow_pass) and backup:
-                                rb_res = await self._run_inline_rollback(str(pth), str(backup))
-                                ctx.tool_results.append(rb_res)
+                    if record["tool"] == "dosya_yaz" and record.get("ok"):
+                        try:
+                            payload = json.loads(record.get("output", ""))
+                            diff = payload.get("diff", {})
+                            pth = payload.get("path", "?")
+                            backup = payload.get("backupPath", "")
+                            summary = (
+                                f"Dosya güncellendi: {pth}; "
+                                f"+{diff.get('addedLines', 0)} -{diff.get('removedLines', 0)} satır; "
+                                f"backup: {backup or 'yok'}"
+                            )
+                            ctx.history.append({"role": "system", "content": summary})
+
+                            # Otonom güvenlik kapısı: yazılan dosya için dar test koş, başarısızsa rollback yap.
+                            if self._objective_requires_test_gate(ctx.objective):
+                                narrow_pattern = self._infer_narrow_test_pattern(str(pth))
+                                narrow_res = await self._run_inline_test(narrow_pattern)
+                                ctx.tool_results.append(narrow_res)
                                 ctx.history.append({
                                     "role": "tool",
-                                    "name": rb_res["tool"],
-                                    "content": json.dumps(rb_res, ensure_ascii=False),
+                                    "name": narrow_res["tool"],
+                                    "content": json.dumps(narrow_res, ensure_ascii=False),
                                 })
                                 await self.trace.append({
-                                    "event": "auto_rollback_applied",
+                                    "event": "inline_narrow_test_result",
                                     "iter": iteration,
-                                    "path": pth,
-                                    "backup": backup,
-                                    **rb_res,
+                                    "pattern": narrow_pattern,
+                                    **narrow_res,
                                 })
 
-                                hint = self._extract_test_failure_hint([narrow_res])
-                                rollback_candidates = self._extract_fix_candidates([narrow_res])
-                                min_plan = self._build_min_cost_fix_plan(rollback_candidates, ctx.objective)
-                                plan_json = self._build_structured_fix_plan(rollback_candidates, ctx.objective)
-                                candidate_text = (
-                                    ", ".join(
-                                        f"{c['path']}:{c['line']} (skor={c.get('score', 0)})"
-                                        for c in rollback_candidates[:3]
-                                    )
-                                    if rollback_candidates else "aday yok"
-                                )
-                                mem_hints_rb = ""
-                                if self.memory and rollback_candidates:
-                                    for c in rollback_candidates[:2]:
-                                        mh = self._memory_hint_for_path(str(c.get("path", "")))
-                                        if mh:
-                                            mem_hints_rb += f" | Hafıza({c['path']}): {mh}"
-                                ctx.history.append({
-                                    "role": "system",
-                                    "content": (
-                                        "Auto rollback uygulandı. "
-                                        f"Kök neden özeti: {hint}. "
-                                        f"Hedef inceleme adayları: {candidate_text}.{mem_hints_rb} "
-                                        f"{min_plan}"
-                                    ),
-                                })
-                                ctx.history.append(
-                                    {
-                                        "role": "system",
-                                        "content": f"PlanJSON: {json.dumps(plan_json, ensure_ascii=False)}",
-                                    }
-                                )
-                                await self.trace.append({
-                                    "event": "auto_rollback_guidance_added",
-                                    "iter": iteration,
-                                    "candidates": rollback_candidates[:3],
-                                    "hint": hint,
-                                    "plan": min_plan,
-                                    "plan_json": plan_json,
-                                })
+                                narrow_pass = False
+                                if narrow_res.get("ok"):
+                                    rc = self._extract_test_returncode(narrow_res)
+                                    narrow_pass = (rc == 0) if rc is not None else True
 
-                                if rollback_candidates:
-                                    for c in rollback_candidates[:2]:
-                                        read_res = await self._run_inline_read(str(c.get("path", "")), int(c.get("line") or 1))
-                                        ctx.tool_results.append(read_res)
-                                        ctx.history.append({
-                                            "role": "tool",
-                                            "name": read_res["tool"],
-                                            "content": json.dumps(read_res, ensure_ascii=False),
-                                        })
-                                        await self.trace.append({
-                                            "event": "auto_rollback_candidate_read",
-                                            "iter": iteration,
-                                            "target": {"path": c.get("path"), "line": c.get("line")},
-                                            **read_res,
-                                        })
-
-                                if self.memory:
-                                    self.memory.record_rollback(
-                                        objective=ctx.objective,
-                                        path=str(pth),
-                                        hint=hint,
-                                        trigger="narrow_test_fail",
-                                    )
-                                    for c in rollback_candidates[:3]:
-                                        self.memory.record_fix_attempt(
-                                            objective=ctx.objective,
-                                            path=str(c.get("path", "")),
-                                            line=int(c.get("line") or 0),
-                                            outcome="failure",
-                                            hint=hint,
-                                            plan_json=plan_json,
-                                        )
-
-                            if os.getenv("AGENT_AUTOTEST_BROAD_AFTER_WRITE", "0").strip() == "1" and narrow_pass:
-                                broad_res = await self._run_inline_test("test_*.py")
-                                ctx.tool_results.append(broad_res)
-                                ctx.history.append({
-                                    "role": "tool",
-                                    "name": broad_res["tool"],
-                                    "content": json.dumps(broad_res, ensure_ascii=False),
-                                })
-                                await self.trace.append({
-                                    "event": "inline_broad_test_result",
-                                    "iter": iteration,
-                                    **broad_res,
-                                })
-
-                                broad_pass = False
-                                if broad_res.get("ok"):
-                                    broad_rc = self._extract_test_returncode(broad_res)
-                                    broad_pass = (broad_rc == 0) if broad_rc is not None else True
-
-                                auto_rb_on_broad = os.getenv("AGENT_AUTOROLLBACK_ON_BROAD_FAIL", "1").strip() == "1"
-                                if (not broad_pass) and backup and auto_rb_on_broad:
+                                if (not narrow_pass) and backup:
                                     rb_res = await self._run_inline_rollback(str(pth), str(backup))
                                     ctx.tool_results.append(rb_res)
                                     ctx.history.append({
@@ -897,35 +889,145 @@ class AgentCore:
                                         "content": json.dumps(rb_res, ensure_ascii=False),
                                     })
                                     await self.trace.append({
-                                        "event": "auto_rollback_applied_broad",
+                                        "event": "auto_rollback_applied",
                                         "iter": iteration,
                                         "path": pth,
                                         "backup": backup,
                                         **rb_res,
                                     })
+
+                                    hint = self._extract_test_failure_hint([narrow_res])
+                                    rollback_candidates = self._extract_fix_candidates([narrow_res])
+                                    min_plan = self._build_min_cost_fix_plan(rollback_candidates, ctx.objective)
+                                    plan_json = self._build_structured_fix_plan(rollback_candidates, ctx.objective)
+                                    candidate_text = (
+                                        ", ".join(
+                                            f"{c['path']}:{c['line']} (skor={c.get('score', 0)})"
+                                            for c in rollback_candidates[:3]
+                                        )
+                                        if rollback_candidates else "aday yok"
+                                    )
+                                    mem_hints_rb = ""
+                                    if self.memory and rollback_candidates:
+                                        for c in rollback_candidates[:2]:
+                                            mh = self._memory_hint_for_path(str(c.get("path", "")))
+                                            if mh:
+                                                mem_hints_rb += f" | Hafıza({c['path']}): {mh}"
                                     ctx.history.append({
                                         "role": "system",
                                         "content": (
-                                            "Broad test başarısız olduğu için otomatik rollback uygulandı. "
-                                            "Geniş regresyon kırılımını hedefleyerek düzelt ve testleri yeniden doğrula."
+                                            "Auto rollback uygulandı. "
+                                            f"Kök neden özeti: {hint}. "
+                                            f"Hedef inceleme adayları: {candidate_text}.{mem_hints_rb} "
+                                            f"{min_plan}"
                                         ),
                                     })
+                                    ctx.history.append(
+                                        {
+                                            "role": "system",
+                                            "content": f"PlanJSON: {json.dumps(plan_json, ensure_ascii=False)}",
+                                        }
+                                    )
+                                    await self.trace.append({
+                                        "event": "auto_rollback_guidance_added",
+                                        "iter": iteration,
+                                        "candidates": rollback_candidates[:3],
+                                        "hint": hint,
+                                        "plan": min_plan,
+                                        "plan_json": plan_json,
+                                    })
+
+                                    if rollback_candidates:
+                                        for c in rollback_candidates[:2]:
+                                            read_res = await self._run_inline_read(str(c.get("path", "")), int(c.get("line") or 1))
+                                            ctx.tool_results.append(read_res)
+                                            ctx.history.append({
+                                                "role": "tool",
+                                                "name": read_res["tool"],
+                                                "content": json.dumps(read_res, ensure_ascii=False),
+                                            })
+                                            await self.trace.append({
+                                                "event": "auto_rollback_candidate_read",
+                                                "iter": iteration,
+                                                "target": {"path": c.get("path"), "line": c.get("line")},
+                                                **read_res,
+                                            })
+
                                     if self.memory:
                                         self.memory.record_rollback(
                                             objective=ctx.objective,
                                             path=str(pth),
-                                            hint="broad_test_fail",
-                                            trigger="broad_test_fail",
+                                            hint=hint,
+                                            trigger="narrow_test_fail",
                                         )
-                                elif narrow_pass and broad_pass and self.memory:
-                                    self.memory.record_fix_attempt(
-                                        objective=ctx.objective,
-                                        path=str(pth),
-                                        line=0,
-                                        outcome="success",
-                                    )
-                    except Exception:
-                        pass
+                                        for c in rollback_candidates[:3]:
+                                            self.memory.record_fix_attempt(
+                                                objective=ctx.objective,
+                                                path=str(c.get("path", "")),
+                                                line=int(c.get("line") or 0),
+                                                outcome="failure",
+                                                hint=hint,
+                                                plan_json=plan_json,
+                                            )
+
+                                if os.getenv("AGENT_AUTOTEST_BROAD_AFTER_WRITE", "0").strip() == "1" and narrow_pass:
+                                    broad_res = await self._run_inline_test("test_*.py")
+                                    ctx.tool_results.append(broad_res)
+                                    ctx.history.append({
+                                        "role": "tool",
+                                        "name": broad_res["tool"],
+                                        "content": json.dumps(broad_res, ensure_ascii=False),
+                                    })
+                                    await self.trace.append({
+                                        "event": "inline_broad_test_result",
+                                        "iter": iteration,
+                                        **broad_res,
+                                    })
+
+                                    broad_pass = False
+                                    if broad_res.get("ok"):
+                                        broad_rc = self._extract_test_returncode(broad_res)
+                                        broad_pass = (broad_rc == 0) if broad_rc is not None else True
+
+                                    auto_rb_on_broad = os.getenv("AGENT_AUTOROLLBACK_ON_BROAD_FAIL", "1").strip() == "1"
+                                    if (not broad_pass) and backup and auto_rb_on_broad:
+                                        rb_res = await self._run_inline_rollback(str(pth), str(backup))
+                                        ctx.tool_results.append(rb_res)
+                                        ctx.history.append({
+                                            "role": "tool",
+                                            "name": rb_res["tool"],
+                                            "content": json.dumps(rb_res, ensure_ascii=False),
+                                        })
+                                        await self.trace.append({
+                                            "event": "auto_rollback_applied_broad",
+                                            "iter": iteration,
+                                            "path": pth,
+                                            "backup": backup,
+                                            **rb_res,
+                                        })
+                                        ctx.history.append({
+                                            "role": "system",
+                                            "content": (
+                                                "Broad test başarısız olduğu için otomatik rollback uygulandı. "
+                                                "Geniş regresyon kırılımını hedefleyerek düzelt ve testleri yeniden doğrula."
+                                            ),
+                                        })
+                                        if self.memory:
+                                            self.memory.record_rollback(
+                                                objective=ctx.objective,
+                                                path=str(pth),
+                                                hint="broad_test_fail",
+                                                trigger="broad_test_fail",
+                                            )
+                                    elif narrow_pass and broad_pass and self.memory:
+                                        self.memory.record_fix_attempt(
+                                            objective=ctx.objective,
+                                            path=str(pth),
+                                            line=0,
+                                            outcome="success",
+                                        )
+                        except Exception:
+                            pass
 
             ctx.state = AgentState.EVALUATING
             await self.trace.append({"event": "state", "state": ctx.state, "iter": iteration})

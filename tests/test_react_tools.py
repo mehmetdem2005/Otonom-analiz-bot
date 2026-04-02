@@ -213,5 +213,32 @@ class ReactToolsTests(unittest.IsolatedAsyncioTestCase):
             self.assertGreaterEqual(result["count"], 1)
 
 
+    async def test_dream_consolidate_tool_registered_and_runs(self):
+        """dream_consolidate tool should be registered and return a result dict."""
+        import tempfile
+        from memory_store import MemoryStore
+
+        with tempfile.TemporaryDirectory() as td:
+            ms = MemoryStore(Path(td) / "mem.jsonl")
+            # Add some duplicate records
+            for _ in range(3):
+                ms.record_fix_attempt(
+                    objective="fix startup error in main",
+                    path="main.py",
+                    line=1,
+                    outcome="failure",
+                    hint="check imports",
+                )
+
+            reg = build_default_registry(Path(td), memory_store=ms)
+            dream_tool = reg.get("dream_consolidate")
+
+            result = await dream_tool.execute({"force": True, "similarity_threshold": 0.4})
+
+        self.assertEqual(result.get("ran"), True)
+        self.assertIn("result", result)
+        self.assertGreaterEqual(result["result"]["merged_count"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

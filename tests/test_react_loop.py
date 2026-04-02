@@ -826,5 +826,248 @@ class AgentCoreTests(unittest.IsolatedAsyncioTestCase):
         self.assertAlmostEqual(float(core.runtime_policy.get("sync_risk_score") or 0.0), 0.9, places=3)
 
 
+    # ------------------------------------------------------------------
+    # ADIM-2: Path/command validation, parallel executor, error feedback
+    # ------------------------------------------------------------------
+
+    async def test_path_validation_blocks_outside_repo(self):
+        """ActionExecutor should reject a path arg that escapes allowed_paths."""
+        import tempfile
+        from action_executor import ActionExecutor
+        from action_schema import ActionEnvelope
+
+        async def dummy_read(args):
+            return "content"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            registry = ToolRegistry()
+            registry.register(
+                ToolDefinition(
+                    name="dosya_oku",
+                    description="read",
+                    execute=dummy_read,
+                    allowed_paths=[tmpdir],
+                )
+            )
+            executor = ActionExecutor(registry)
+            action = ActionEnvelope(
+                name="dosya_oku",
+                args={"path": "../../etc/passwd"},
+                timeout_sec=5,
+                retry=0,
+                safety_level="low",
+            )
+            result = await executor.run(action)
+
+        self.assertFalse(result.ok)
+        self.assertIn("Yol erişim engeli", result.error or "")
+
+    async def test_path_inside_repo_is_allowed(self):
+        """ActionExecutor should allow paths inside allowed_paths."""
+        import tempfile
+        import os
+        from action_executor import ActionExecutor
+        from action_schema import ActionEnvelope
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = os.path.join(tmpdir, "test.txt")
+            with open(test_file, "w") as f:
+                f.write("hello")
+
+            async def read_tool(args):
+                with open(args["path"]) as fh:
+                    return fh.read()
+
+            registry = ToolRegistry()
+            registry.register(
+                ToolDefinition(
+                    name="dosya_oku",
+                    description="read",
+                    execute=read_tool,
+                    allowed_paths=[tmpdir],
+                )
+            )
+            executor = ActionExecutor(registry)
+            action = ActionEnvelope(
+                name="dosya_oku",
+                args={"path": os.path.join(tmpdir, "test.txt")},
+                timeout_sec=5,
+                retry=0,
+                safety_level="low",
+            )
+            result = await executor.run(action)
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.output, "hello")
+
+    async def test_blocked_command_rejects_dangerous_code(self):
+        """ActionExecutor should reject args containing a blocked command pattern."""
+        from action_executor import ActionExecutor
+        from action_schema import ActionEnvelope
+
+        async def run_code(args):
+            return "ran"
+
+        registry = ToolRegistry()
+        registry.register(
+            ToolDefinition(
+                name="kod_calistir",
+                description="run",
+                execute=run_code,
+                blocked_commands=["rm -rf", "sudo"],
+                allowed_paths=None,
+            )
+        )
+        # Override __post_init__ defaults by reassigning after creation
+        tool = registry.get("kod_calistir")
+        tool.allowed_paths = None  # disable path check for this test
+
+        executor = ActionExecutor(registry)
+        action = ActionEnvelope(
+            name="kod_calistir",
+            args={"code": "import os; os.system('rm -rf /tmp/x')"},
+            timeout_sec=5,
+            retry=0,
+            safety_level="high",
+        )
+        result = await executor.run(action)
+
+        self.assertFalse(result.ok)
+        self.assertIn("Engellenen komut", result.error or "")
+
+    async def test_parallel_batch_runs_multiple_tools_concurrently(self):
+        """run_parallel_batch should run all actions and return results in order."""
+        import time
+        from action_executor import ActionExecutor
+        from action_schema import ActionEnvelope
+
+        order = []
+
+        async def slow_tool(args):
+            await asyncio.sleep(0.05)
+            order.append(args["id"])
+            return f"result-{args['id']}"
+
+        registry = ToolRegistry()
+        for i in range(3):
+            registry.register(
+                ToolDefinition(
+                    name=f"tool_{i}",
+                    description=f"tool {i}",
+                    execute=slow_tool,
+                    allowed_paths=None,
+                )
+            )
+            registry.get(f"tool_{i}").allowed_paths = None
+
+        executor = ActionExecutor(registry)
+        actions = [
+            ActionEnvelope(name=f"tool_{i}", args={"id": i}, timeout_sec=5, retry=0, safety_level="low")
+            for i in range(3)
+        ]
+
+        start = asyncio.get_event_loop().time()
+        results = await executor.run_parallel_batch(actions)
+        elapsed = asyncio.get_event_loop().time() - start
+
+        # All 3 results must be present
+        self.assertEqual(len(results), 3)
+        self.assertTrue(all(r.ok for r in results))
+        # Results are returned in input order even if completion order differs
+        self.assertEqual([r.output for r in results], ["result-0", "result-1", "result-2"])
+        # All tools ran (total ~0.05s not ~0.15s) – parallelism check
+        self.assertLess(elapsed, 0.12)
+
+    async def test_tool_error_injects_feedback_into_history(self):
+        """When a tool fails, a guidance message should be appended to history."""
+        calls = {"n": 0}
+
+        async def llm(history, tools):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {
+                    "actions": [
+                        {
+                            "name": "fragile",
+                            "args": {},
+                            "timeout_sec": 2,
+                            "retry": 0,
+                            "safety_level": "low",
+                        }
+                    ]
+                }
+            return {"final": "done"}
+
+        async def fragile_tool(_args):
+            raise FileNotFoundError("dosya bulunamadı")
+
+        registry = ToolRegistry()
+        registry.register(
+            ToolDefinition(
+                name="fragile",
+                description="fails",
+                execute=fragile_tool,
+                allowed_paths=None,
+            )
+        )
+        registry.get("fragile").allowed_paths = None
+
+        core = AgentCore(llm, registry, max_iterations=4)
+        ctx = await core.run("test objective")
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        # There must be a system message with error guidance in history
+        guidance_msgs = [
+            m for m in ctx.history
+            if m.get("role") == "system" and "fragile" in m.get("content", "")
+        ]
+        self.assertTrue(len(guidance_msgs) >= 1)
+
+    async def test_parallel_safe_tools_use_parallel_path_in_agent(self):
+        """AgentCore should use parallel execution when all tools are parallel-safe."""
+        start_times: list[float] = []
+        import asyncio as aio
+
+        async def llm(history, tools):
+            if not any(m.get("role") == "tool" for m in history):
+                return {
+                    "actions": [
+                        {"name": "dosya_oku", "args": {"path": f"f{i}.txt"}, "timeout_sec": 5, "retry": 0, "safety_level": "low"}
+                        for i in range(3)
+                    ]
+                }
+            return {"final": "parallel done"}
+
+        async def slow_read(args):
+            t = aio.get_event_loop().time()
+            start_times.append(t)
+            await aio.sleep(0.05)
+            return "content"
+
+        registry = ToolRegistry()
+        registry.register(
+            ToolDefinition(
+                name="dosya_oku",
+                description="read",
+                execute=slow_read,
+                allowed_paths=None,
+            )
+        )
+        registry.get("dosya_oku").allowed_paths = None
+
+        core = AgentCore(llm, registry, max_iterations=4)
+        import time
+        t0 = time.monotonic()
+        ctx = await core.run("parallel test")
+        elapsed = time.monotonic() - t0
+
+        self.assertEqual(ctx.state, AgentState.DONE)
+        # 3 tools ran
+        tool_results = [r for r in ctx.tool_results if r.get("tool") == "dosya_oku"]
+        self.assertEqual(len(tool_results), 3)
+        # They ran in parallel (total ~0.05s not ~0.15s)
+        self.assertLess(elapsed, 0.20)
+
+
 if __name__ == "__main__":
     unittest.main()
